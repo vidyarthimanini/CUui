@@ -27,11 +27,30 @@ PAGES = {
     "Tools": render_tools,
 }
 
-page = st.sidebar.radio(
-    label="Navigation",
-    options=PAGES,
-    label_visibility="collapsed"
-)
+# ---- Sidebar Navigation (Button-based) ----
+if "page" not in st.session_state:
+    st.session_state.page = "Borrower Profile"
+
+nav_items = [
+    "Borrower Profile",
+    "Financial Data",
+    "Banking Conduct",
+    "Loan Request",
+    "Assessment",
+    "Documents",
+    "AI Scorecard",
+    "Tools",
+]
+
+for item in nav_items:
+    if st.sidebar.button(
+        item,
+        use_container_width=True,
+        key=f"nav_{item}"
+    ):
+        st.session_state.page = item
+
+page = st.session_state.page
 
 # Header
 col1, col2 = st.columns([6, 2])

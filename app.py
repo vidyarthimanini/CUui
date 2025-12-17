@@ -27,7 +27,7 @@ PAGES = [
     "Tools"
 ]
 
-page = st.sidebar.selectbox(
+page = st.sidebar.button(
     "Navigate",
     PAGES
 )

@@ -1,5 +1,7 @@
 import re
 from .cin_validator import validate_cin
+from .pan_validator import validate_pan
+from .gstin_validator import validate_gstin
 from .pincode_validator import validate_and_resolve_pincode
 
 def validate_borrower_profile(data: dict):

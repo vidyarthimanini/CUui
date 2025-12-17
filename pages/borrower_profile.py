@@ -46,16 +46,19 @@ def render_borrower_profile():
         company_name = st.text_input("Company Name *")
         entity_type = st.selectbox(
             "Type of Entity *",
-            ["Select entity type", "Pvt Ltd", "LLP", "Partnership", "Proprietorship"]
+            ["Select entity type", "Pvt Ltd", "LLP", "Partnership", "Proprietorship", "Public Sector Undertaking (PSU)", "Unlisted Compant", "Listed Company" ]
         )
         sector = st.selectbox(
             "Sector *",
-            ["Select sector", "Manufacturing", "Trading", "Services"]
+            ["Select sector", "Manufacturing", "Trading", "Services", "Agriculture", "Real Estate", "Healthcare", "IT & Technology", "Retail", "Hospitality", "Transportation"]
         )
     with c2:
         cin = st.text_input("CIN Number *")
         industry = st.text_input("Industry / Sub-sector")
-
+     registration_date = st.date_input(
+            "Registration Date *",
+            max_value=date.today()
+     )
     # ---------------- Address ----------------
     address = st.text_area("Registered Address *")
 

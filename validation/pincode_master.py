@@ -1,6 +1,5 @@
 import pandas as pd
 import os
-import re
 
 def load_pincode_master():
     base_dir = os.path.dirname(os.path.dirname(__file__))
@@ -9,64 +8,36 @@ def load_pincode_master():
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Pincode master not found at: {file_path}")
 
-    # Try common delimiters used in govt CSVs
-    delimiters = [",", ";", "|", "\t"]
-    df = None
+    # India Post CSVs are usually comma-separated but may have BOM
+    df = pd.read_csv(
+        file_path,
+        dtype=str,
+        encoding="utf-8-sig"
+    )
 
-    for sep in delimiters:
-        try:
-            temp = pd.read_csv(
-                file_path,
-                sep=sep,
-                dtype=str,
-                encoding="utf-8-sig",
-                on_bad_lines="skip"
-            )
-            if not temp.empty and temp.shape[1] > 1:
-                df = temp
-                break
-        except Exception:
-            continue
-
-    if df is None or df.empty:
-        raise ValueError(
-            "Pincode CSV could not be parsed. "
-            "Likely delimiter issue or file has no data rows."
-        )
+    if df.empty:
+        raise ValueError("Pincode CSV loaded but contains no data rows")
 
     # Normalize column names
-    df.columns = [
-        re.sub(r"\s+", "", c.strip().lower())
-        for c in df.columns
-    ]
+    df.columns = [c.strip().lower() for c in df.columns]
 
-    # Flexible column mapping (based on India Post schema)
-    column_map = {
-        "pincode": ["pincode", "pin", "postalcode"],
-        "city": ["officename", "office", "city"],
-        "state": ["statename", "state"]
-    }
-
-    resolved = {}
-    for target, options in column_map.items():
-        for opt in options:
-            if opt in df.columns:
-                resolved[target] = opt
-                break
-
-    missing = set(column_map.keys()) - set(resolved.keys())
+    # REQUIRED columns from your CSV
+    required = {"pincode", "officename", "statename"}
+    missing = required - set(df.columns)
     if missing:
         raise ValueError(
             f"Pincode CSV missing required columns: {missing}. "
             f"Found columns: {list(df.columns)}"
         )
 
+    # Rename to internal standard
     df = df.rename(columns={
-        resolved["pincode"]: "pincode",
-        resolved["city"]: "city",
-        resolved["state"]: "state"
+        "officename": "city",
+        "statename": "state"
     })
 
+    # Clean pincode
     df["pincode"] = df["pincode"].str.strip()
 
+    # Keep only what we need
     return df[["pincode", "city", "state"]]

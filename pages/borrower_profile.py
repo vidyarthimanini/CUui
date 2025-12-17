@@ -66,15 +66,16 @@ def render_borrower_profile():
             "email": email,
             "phone": phone,
         }
+    errors, updated_data = validate_borrower_profile(form_data)
+    
+    if errors:
+        st.warning("⚠ Please review the following:")
+        for e in errors:
+            st.write("•", e)
+    else:
+        # 🔑 Persist derived values
+        st.session_state["city"] = updated_data.get("city", "")
+        st.session_state["state"] = updated_data.get("state", "")
+    
+        st.success("✅ Borrower Profile validated successfully")
 
-        errors = validate_borrower_profile(form_data)
-
-        if errors:
-            st.warning("⚠ Please review the following:")
-            for e in errors:
-                st.write("•", e)
-        else:
-            st.success("✅ Borrower Profile validated successfully")
-             # persist derived values from validator
-            st.session_state["city"] = form_data.get("city")
-            st.session_state["state"] = form_data.get("state")

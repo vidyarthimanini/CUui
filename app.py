@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.sidebar.title("📂 Corporate Credit Underwriting")
+st.sidebar.title(" Corporate Credit Underwriting")
 
 PAGES = {
     "Borrower Profile": render_borrower_profile,
@@ -58,8 +58,8 @@ with col1:
     st.markdown("## Corporate Credit Underwriting")
     st.caption("Comprehensive credit assessment platform")
 with col2:
-    st.button("💾 Save Application")
-    st.button("📤 Submit for Review")
+    st.button(" Save Application")
+    st.button(" Submit for Review")
 
 st.divider()
 

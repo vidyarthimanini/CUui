@@ -25,9 +25,25 @@ def render_borrower_profile():
     # --- Address ---
     address = st.text_area("Registered Address *")
     c3, c4, c5 = st.columns(3)
-    city = c3.text_input("City *")
-    state = c4.selectbox("State *", ["Select state", "MH", "DL", "KA"])
-    pincode = c5.text_input("Pincode *")
+
+city = c3.text_input(
+    "City",
+    value=st.session_state.get("city", ""),
+    disabled=True
+)
+
+state = c4.text_input(
+    "State",
+    value=st.session_state.get("state", ""),
+    disabled=True
+)
+
+pincode = c5.text_input(
+    "Pincode *",
+    max_chars=6,
+    help="6-digit India Post PIN code"
+)
+
 
     # --- Contact ---
     c6, c7, c8 = st.columns(3)

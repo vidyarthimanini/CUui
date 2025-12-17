@@ -29,7 +29,7 @@ def load_pincode_master():
     df.columns = [c.strip().lower() for c in df.columns]
 
     # Expected India Post columns (your CSV)
-    required = {"pincode", "officename", "statename"}
+    required = {"pincode", "district", "statename"}
     missing = required - set(df.columns)
 
     if missing:
@@ -40,7 +40,7 @@ def load_pincode_master():
 
     # Standardize naming
     df = df.rename(columns={
-        "officename": "city",
+        "district": "city",
         "statename": "state"
     })
 

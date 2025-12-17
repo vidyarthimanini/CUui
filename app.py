@@ -27,7 +27,7 @@ PAGES = [
     "Tools"
 ]
 
-page = st.sidebar.radio(
+page = st.sidebar.selectbox(
     "Navigate",
     PAGES
 )

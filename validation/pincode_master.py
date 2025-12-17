@@ -1,31 +1,41 @@
 import pandas as pd
 import os
 
-_PINCODE_DF = None
-
 def load_pincode_master():
-    global _PINCODE_DF
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    file_path = os.path.join(base_dir, "data", "india_pincode.csv")
 
-    if _PINCODE_DF is None:
-        base_dir = os.path.dirname(os.path.dirname(__file__))
-        file_path = os.path.join(base_dir, "data", "india_pincode.csv")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Pincode master not found at: {file_path}")
 
-        df = pd.read_csv(file_path, dtype={"pincode": str})
-
-        # normalize column names
-        df.columns = [c.lower().strip() for c in df.columns]
-
-        # keep only what we need for validation & autofill
-        df = df[["pincode", "district", "statename"]].drop_duplicates()
-
-        # rename to internal standard names
-        df = df.rename(
-            columns={
-                "district": "city",
-                "statename": "state"
-            }
+    try:
+        df = pd.read_csv(
+            file_path,
+            dtype={"pincode": str},
+            encoding="utf-8",
+            on_bad_lines="skip"
+        )
+    except pd.errors.EmptyDataError:
+        raise ValueError(
+            "Pincode CSV is empty or unreadable. "
+            "Ensure it contains data rows and is a valid CSV."
         )
 
-        _PINCODE_DF = df
+    if df.empty:
+        raise ValueError("Pincode CSV loaded but contains zero rows.")
 
-    return _PINCODE_DF
+    # Normalize column names
+    df.columns = [c.strip().lower() for c in df.columns]
+
+    required = {"pincode", "officename", "statename"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Pincode CSV missing columns: {missing}")
+
+    # Standardize names
+    df = df.rename(columns={
+        "officename": "city",
+        "statename": "state"
+    })
+
+    return df

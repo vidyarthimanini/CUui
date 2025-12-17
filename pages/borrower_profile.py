@@ -3,6 +3,7 @@ from datetime import date
 from validation.borrower_profile_rules import validate_borrower_profile
 from validation.pincode_validator import validate_and_resolve_pincode
 
+
 # ------------------ Helpers ------------------
 def handle_pincode_change():
     raw = st.session_state.get("pincode", "")
@@ -43,23 +44,51 @@ def render_borrower_profile():
 
     # ---------------- Company ----------------
     c1, c2 = st.columns(2)
+
     with c1:
         company_name = st.text_input("Company Name *")
+
         entity_type = st.selectbox(
             "Type of Entity *",
-            ["Select entity type", "Pvt Ltd", "LLP", "Partnership", "Proprietorship", "Public Sector Undertaking (PSU)", "Unlisted Compant", "Listed Company" ]
+            [
+                "Select entity type",
+                "Pvt Ltd",
+                "LLP",
+                "Partnership",
+                "Proprietorship",
+                "Public Sector Undertaking (PSU)",
+                "Unlisted Company",
+                "Listed Company"
+            ]
         )
+
         sector = st.selectbox(
             "Sector *",
-            ["Select sector", "Manufacturing", "Trading", "Services", "Agriculture", "Real Estate", "Healthcare", "IT & Technology", "Retail", "Hospitality", "Transportation"]
+            [
+                "Select sector",
+                "Manufacturing",
+                "Trading",
+                "Services",
+                "Agriculture",
+                "Real Estate",
+                "Healthcare",
+                "IT & Technology",
+                "Retail",
+                "Hospitality",
+                "Transportation"
+            ]
         )
+
     with c2:
         cin = st.text_input("CIN Number *")
         industry = st.text_input("Industry / Sub-sector")
-     registration_date = st.date_input(
-            "Registration Date *",
-            max_value=date.today()
-     )
+
+    # ✅ FIXED INDENTATION (this was the crash)
+    registration_date = st.date_input(
+        "Registration Date *",
+        max_value=date.today()
+    )
+
     # ---------------- Address ----------------
     address = st.text_area("Registered Address *")
 
@@ -76,12 +105,13 @@ def render_borrower_profile():
         help="6-digit India Post PIN"
     )
 
-    # ---------------- Tax IDs ----------------
+    # ---------------- Legal Identifiers ----------------
     st.markdown("### Legal Identifiers")
 
     c9, c10 = st.columns(2)
     pan = c9.text_input("PAN *", max_chars=10)
     gstin = c10.text_input("GSTIN", max_chars=15)
+
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)
 

@@ -75,3 +75,6 @@ def render_borrower_profile():
                 st.write("•", e)
         else:
             st.success("✅ Borrower Profile validated successfully")
+             # persist derived values from validator
+            st.session_state["city"] = form_data.get("city")
+            st.session_state["state"] = form_data.get("state")

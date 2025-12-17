@@ -1,15 +1,47 @@
 import streamlit as st
 from validation.borrower_profile_rules import validate_borrower_profile
+from validation.pincode_validator import validate_and_resolve_pincode
 
+# -------------------------------------------------
+# Helpers
+# -------------------------------------------------
+def digits_only(key, max_len=None):
+    val = st.session_state.get(key, "")
+    cleaned = "".join(ch for ch in val if ch.isdigit())
+    if max_len:
+        cleaned = cleaned[:max_len]
+    st.session_state[key] = cleaned
+
+
+def on_pincode_change():
+    pin = st.session_state.get("pincode_input", "")
+
+    ok, msg, city, state = validate_and_resolve_pincode(pin)
+
+    if ok and city and state:
+        st.session_state["city"] = city
+        st.session_state["state"] = state
+    else:
+        st.session_state["city"] = ""
+        st.session_state["state"] = ""
+
+
+# -------------------------------------------------
+# Page
+# -------------------------------------------------
 def render_borrower_profile():
 
     st.subheader("📁 Borrower Profile")
 
-    # -------- Initialize session state --------
+    # ---- Session state init ----
     if "city" not in st.session_state:
         st.session_state.city = ""
     if "state" not in st.session_state:
         st.session_state.state = ""
+    if "pincode_input" not in st.session_state:
+        st.session_state.pincode_input = ""
+    if "phone_input" not in st.session_state:
+        st.session_state.phone_input = ""
 
     # ---------------- Company Info ----------------
     c1, c2 = st.columns(2)
@@ -35,27 +67,38 @@ def render_borrower_profile():
 
     city = c3.text_input(
         "City *",
-        value=st.session_state.city,
-        key="city_input"
+        key="city"
     )
 
     state = c4.text_input(
         "State *",
-        value=st.session_state.state,
-        key="state_input"
+        key="state"
     )
 
     pincode = c5.text_input(
         "Pincode *",
+        key="pincode_input",
         max_chars=6,
+        on_change=lambda: (
+            digits_only("pincode_input", 6),
+            on_pincode_change()
+        ),
         help="6-digit India Post PIN code"
     )
 
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)
+
     contact_person = c6.text_input("Contact Person *")
     email = c7.text_input("Email *")
-    phone = c8.text_input("Phone (10 digits) *")
+
+    phone = c8.text_input(
+        "Phone Number *",
+        key="phone_input",
+        max_chars=10,
+        on_change=lambda: digits_only("phone_input", 10),
+        help="10-digit mobile number"
+    )
 
     # ---------------- Submit ----------------
     if st.button("Continue to Financial Data ➡️"):
@@ -66,12 +109,12 @@ def render_borrower_profile():
             "sector": sector,
             "cin": cin,
             "address": address,
-            "city": city,
-            "state": state,
-            "pincode": pincode,
+            "city": st.session_state.city,
+            "state": st.session_state.state,
+            "pincode": st.session_state.pincode_input,
             "contact_person": contact_person,
             "email": email,
-            "phone": phone,
+            "phone": st.session_state.phone_input,
         }
 
         errors, updated_data = validate_borrower_profile(form_data)
@@ -81,10 +124,8 @@ def render_borrower_profile():
             for e in errors:
                 st.write("•", e)
         else:
-            # 🔑 Auto-fill from PIN but allow override
-            if updated_data.get("city"):
-                st.session_state.city = updated_data["city"]
-            if updated_data.get("state"):
-                st.session_state.state = updated_data["state"]
+            # Persist validated values
+            st.session_state.city = updated_data.get("city", st.session_state.city)
+            st.session_state.state = updated_data.get("state", st.session_state.state)
 
             st.success("✅ Borrower Profile validated successfully")

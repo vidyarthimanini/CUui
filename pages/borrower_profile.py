@@ -2,48 +2,45 @@ import streamlit as st
 from validation.borrower_profile_rules import validate_borrower_profile
 from validation.pincode_validator import validate_and_resolve_pincode
 
-# -------------------------------------------------
-# Helpers
-# -------------------------------------------------
-def digits_only(key, max_len=None):
-    val = st.session_state.get(key, "")
-    cleaned = "".join(ch for ch in val if ch.isdigit())
-    if max_len:
-        cleaned = cleaned[:max_len]
-    st.session_state[key] = cleaned
+# ------------------ Helpers ------------------
+def handle_pincode_change():
+    raw = st.session_state.get("pincode", "")
 
+    # digits only
+    cleaned = "".join(c for c in raw if c.isdigit())[:6]
+    st.session_state.pincode = cleaned
 
-def on_pincode_change():
-    pin = st.session_state.get("pincode_input", "")
+    if len(cleaned) != 6:
+        st.session_state.city = ""
+        st.session_state.state = ""
+        return
 
-    ok, msg, city, state = validate_and_resolve_pincode(pin)
+    ok, _, city, state = validate_and_resolve_pincode(cleaned)
 
-    if ok and city and state:
-        st.session_state["city"] = city
-        st.session_state["state"] = state
+    if ok:
+        st.session_state.city = city
+        st.session_state.state = state
     else:
-        st.session_state["city"] = ""
-        st.session_state["state"] = ""
+        st.session_state.city = ""
+        st.session_state.state = ""
 
 
-# -------------------------------------------------
-# Page
-# -------------------------------------------------
+def handle_phone_change():
+    raw = st.session_state.get("phone", "")
+    st.session_state.phone = "".join(c for c in raw if c.isdigit())[:10]
+
+
+# ------------------ Page ------------------
 def render_borrower_profile():
 
     st.subheader("📁 Borrower Profile")
 
-    # ---- Session state init ----
-    if "city" not in st.session_state:
-        st.session_state.city = ""
-    if "state" not in st.session_state:
-        st.session_state.state = ""
-    if "pincode_input" not in st.session_state:
-        st.session_state.pincode_input = ""
-    if "phone_input" not in st.session_state:
-        st.session_state.phone_input = ""
+    # ---- Init session state ----
+    for k in ["city", "state", "pincode", "phone"]:
+        if k not in st.session_state:
+            st.session_state[k] = ""
 
-    # ---------------- Company Info ----------------
+    # ---------------- Company ----------------
     c1, c2 = st.columns(2)
     with c1:
         company_name = st.text_input("Company Name *")
@@ -56,7 +53,6 @@ def render_borrower_profile():
             ["Select sector", "Manufacturing", "Trading", "Services"]
         )
     with c2:
-        group_name = st.text_input("Group Name")
         cin = st.text_input("CIN Number *")
         industry = st.text_input("Industry / Sub-sector")
 
@@ -65,25 +61,15 @@ def render_borrower_profile():
 
     c3, c4, c5 = st.columns(3)
 
-    city = c3.text_input(
-        "City *",
-        key="city"
-    )
+    c3.text_input("City *", key="city")
+    c4.text_input("State *", key="state")
 
-    state = c4.text_input(
-        "State *",
-        key="state"
-    )
-
-    pincode = c5.text_input(
+    c5.text_input(
         "Pincode *",
-        key="pincode_input",
+        key="pincode",
         max_chars=6,
-        on_change=lambda: (
-            digits_only("pincode_input", 6),
-            on_pincode_change()
-        ),
-        help="6-digit India Post PIN code"
+        on_change=handle_pincode_change,
+        help="6-digit India Post PIN"
     )
 
     # ---------------- Contact ----------------
@@ -92,16 +78,16 @@ def render_borrower_profile():
     contact_person = c6.text_input("Contact Person *")
     email = c7.text_input("Email *")
 
-    phone = c8.text_input(
+    c8.text_input(
         "Phone Number *",
-        key="phone_input",
+        key="phone",
         max_chars=10,
-        on_change=lambda: digits_only("phone_input", 10),
+        on_change=handle_phone_change,
         help="10-digit mobile number"
     )
 
     # ---------------- Submit ----------------
-    if st.button("Continue to Financial Data ➡️"):
+    if st.button("Continue ➡️"):
 
         form_data = {
             "company_name": company_name,
@@ -111,21 +97,17 @@ def render_borrower_profile():
             "address": address,
             "city": st.session_state.city,
             "state": st.session_state.state,
-            "pincode": st.session_state.pincode_input,
+            "pincode": st.session_state.pincode,
             "contact_person": contact_person,
             "email": email,
-            "phone": st.session_state.phone_input,
+            "phone": st.session_state.phone,
         }
 
-        errors, updated_data = validate_borrower_profile(form_data)
+        errors, _ = validate_borrower_profile(form_data)
 
         if errors:
-            st.warning("⚠ Please review the following:")
+            st.error("Please fix the following:")
             for e in errors:
                 st.write("•", e)
         else:
-            # Persist validated values
-            st.session_state.city = updated_data.get("city", st.session_state.city)
-            st.session_state.state = updated_data.get("state", st.session_state.state)
-
-            st.success("✅ Borrower Profile validated successfully")
+            st.success("Borrower Profile validated successfully ✅")

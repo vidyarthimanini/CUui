@@ -51,4 +51,5 @@ def validate_borrower_profile(data: dict):
     if not re.fullmatch(r"\d{10}", data.get("phone") or ""):
         errors.append("Phone number must be exactly 10 digits")
 
-    return errors
+    return errors, data
+

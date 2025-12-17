@@ -15,7 +15,9 @@ def validate_borrower_profile(data: dict):
 
     if data.get("sector") == "Select sector":
         errors.append("Sector is mandatory")
-
+        
+    if not data.get("registration_date"):
+        errors.append("Registration Date is mandatory")
     # ---------------- CIN ----------------
     cin_ok, cin_msg = validate_cin(data.get("cin"))
     if not cin_ok:
@@ -24,7 +26,18 @@ def validate_borrower_profile(data: dict):
     # ---------------- Address ----------------
     if not data.get("address"):
         errors.append("Registered Address is mandatory")
+  # ---------------- PAN ----------------
+    ok, msg = validate_pan(data.get("pan"))
+    if not ok:
+        errors.append(msg)
 
+    # ---------------- GSTIN ----------------
+    ok, msg = validate_gstin(
+        data.get("gstin"),
+        data.get("pan")
+    )
+    if not ok:
+        errors.append(msg)
     # ---------------- PINCODE (India Post Master) ----------------
     pin_ok, pin_msg, city, state = validate_and_resolve_pincode(
         data.get("pincode")

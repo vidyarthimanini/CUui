@@ -75,6 +75,12 @@ def render_borrower_profile():
         help="6-digit India Post PIN"
     )
 
+    # ---------------- Tax IDs ----------------
+    st.markdown("### Legal Identifiers")
+
+    c9, c10 = st.columns(2)
+    pan = c9.text_input("PAN *", max_chars=10)
+    gstin = c10.text_input("GSTIN", max_chars=15)
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)
 
@@ -97,6 +103,9 @@ def render_borrower_profile():
             "entity_type": entity_type,
             "sector": sector,
             "cin": cin,
+            "pan": pan,
+            "gstin": gstin,
+            "registration_date": registration_date,
             "address": address,
             "city": st.session_state.city,
             "state": st.session_state.state,

@@ -27,7 +27,11 @@ PAGES = {
     "Tools": render_tools,
 }
 
-page = st.sidebar.radio("", list(PAGES.keys()))
+page = st.sidebar.radio(
+    label="Navigation",
+    options=PAGES,
+    label_visibility="collapsed"
+)
 
 # Header
 col1, col2 = st.columns([6, 2])

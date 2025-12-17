@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import re
 
 def load_pincode_master():
     base_dir = os.path.dirname(os.path.dirname(__file__))
@@ -8,34 +9,25 @@ def load_pincode_master():
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Pincode master not found at: {file_path}")
 
-    try:
-        df = pd.read_csv(
-            file_path,
-            dtype={"pincode": str},
-            encoding="utf-8",
-            on_bad_lines="skip"
-        )
-    except pd.errors.EmptyDataError:
-        raise ValueError(
-            "Pincode CSV is empty or unreadable. "
-            "Ensure it contains data rows and is a valid CSV."
-        )
+    df = pd.read_csv(
+        file_path,
+        dtype=str,
+        encoding="utf-8-sig",
+        on_bad_lines="skip"
+    )
 
     if df.empty:
-        raise ValueError("Pincode CSV loaded but contains zero rows.")
+        raise ValueError("Pincode CSV loaded but contains zero rows")
+
+    # 🔍 LOG WHAT PANDAS ACTUALLY SEES
+    print("PINCODE CSV COLUMNS:", list(df.columns))
 
     # Normalize column names
-    df.columns = [c.strip().lower() for c in df.columns]
+    df.columns = [
+        re.sub(r"\s+", "", c.strip().lower())
+        for c in df.columns
+    ]
 
-    required = {"pincode", "officename", "statename"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Pincode CSV missing columns: {missing}")
-
-    # Standardize names
-    df = df.rename(columns={
-        "officename": "city",
-        "statename": "state"
-    })
+    print("NORMALIZED COLUMNS:", list(df.columns))
 
     return df

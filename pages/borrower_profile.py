@@ -5,6 +5,12 @@ def render_borrower_profile():
 
     st.subheader("📁 Borrower Profile")
 
+    # -------- Initialize session state --------
+    if "city" not in st.session_state:
+        st.session_state.city = ""
+    if "state" not in st.session_state:
+        st.session_state.state = ""
+
     # ---------------- Company Info ----------------
     c1, c2 = st.columns(2)
     with c1:
@@ -28,15 +34,15 @@ def render_borrower_profile():
     c3, c4, c5 = st.columns(3)
 
     city = c3.text_input(
-        "City",
-        value=st.session_state.get("city", ""),
-        disabled=True
+        "City *",
+        value=st.session_state.city,
+        key="city_input"
     )
 
     state = c4.text_input(
-        "State",
-        value=st.session_state.get("state", ""),
-        disabled=True
+        "State *",
+        value=st.session_state.state,
+        key="state_input"
     )
 
     pincode = c5.text_input(
@@ -75,8 +81,10 @@ def render_borrower_profile():
             for e in errors:
                 st.write("•", e)
         else:
-            # Persist derived city/state
-            st.session_state["city"] = updated_data.get("city", "")
-            st.session_state["state"] = updated_data.get("state", "")
+            # 🔑 Auto-fill from PIN but allow override
+            if updated_data.get("city"):
+                st.session_state.city = updated_data["city"]
+            if updated_data.get("state"):
+                st.session_state.state = updated_data["state"]
 
             st.success("✅ Borrower Profile validated successfully")

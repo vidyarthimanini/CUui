@@ -119,14 +119,36 @@ def render_borrower_profile():
     st.markdown("### Legal Identifiers")
 
     c9, c10 = st.columns(2)
+       # ---------- PAN ----------
     pan = c9.text_input("PAN *", max_chars=10)
+    
+    pan_ok = False
+    if pan:
+        pan_ok, pan_msg = validate_pan(pan)
+        if not pan_ok:
+            c9.error(pan_msg)
+        else:
+            c9.success("✔ Valid PAN")
     gstin = c10.text_input("GSTIN", max_chars=15)
-
+    gstin_ok = True  # optional field
+    if gstin:
+        gstin_ok, gstin_msg = validate_gstin(gstin, pan)
+        if not gstin_ok:
+            c10.error(gstin_msg)
+        else:
+            c10.success("✔ Valid GSTIN")
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)
 
     contact_person = c6.text_input("Contact Person *")
     email = c7.text_input("Email *")
+    email_ok = False
+    if email:
+        email_regex = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+        if not re.fullmatch(email_regex, email.strip()):
+            c7.error("Invalid email format")
+        else:
+            email_ok = True
 
     c8.text_input(
         "Phone Number *",

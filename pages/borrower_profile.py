@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 from datetime import date
 from validation.borrower_profile_rules import validate_borrower_profile

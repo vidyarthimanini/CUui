@@ -2,7 +2,13 @@ import re
 from datetime import date
 
 
-# Valid Indian State Codes used in CIN
+# ---------------- Constants ----------------
+
+VALID_LISTING_STATUS = {
+    "L": "Listed Company",
+    "U": "Unlisted Company"
+}
+
 VALID_STATE_CODES = {
     "AN","AP","AR","AS","BR","CH","CG","DD","DL","DN","GA","GJ",
     "HP","HR","JH","JK","KA","KL","LA","LD","MH","ML","MN","MP",
@@ -10,7 +16,6 @@ VALID_STATE_CODES = {
     "WB"
 }
 
-# Valid company classification codes
 VALID_COMPANY_TYPES = {
     "PTC",  # Private Limited
     "PLC",  # Public Limited
@@ -22,10 +27,14 @@ VALID_COMPANY_TYPES = {
 }
 
 
+# ---------------- Validator ----------------
+
 def validate_cin(cin: str):
     """
     Validates Corporate Identification Number (CIN)
-    Returns: (bool, message)
+
+    Returns:
+        (bool, message)
     """
 
     if not cin:
@@ -33,42 +42,51 @@ def validate_cin(cin: str):
 
     cin = cin.strip().upper()
 
+    # ---------------- Length ----------------
     if len(cin) != 21:
         return False, "CIN must be exactly 21 characters"
 
-    # ---------------- Overall pattern ----------------
+    # ---------------- Structural Pattern ----------------
     pattern = r"^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$"
     if not re.fullmatch(pattern, cin):
         return False, "CIN format is invalid"
 
-    # ---------------- 1st character ----------------
+    # ---------------- Listing Status ----------------
     listing_status = cin[0]
-    if listing_status not in {"L", "U"}:
+    if listing_status not in VALID_LISTING_STATUS:
         return False, "CIN must start with L (Listed) or U (Unlisted)"
 
-    # ---------------- Industry code ----------------
+    # ---------------- Industry Code ----------------
     industry_code = cin[1:6]
     if not industry_code.isdigit():
         return False, "Invalid industry code in CIN"
 
-    # ---------------- State code ----------------
+    # ---------------- State Code ----------------
     state_code = cin[6:8]
     if state_code not in VALID_STATE_CODES:
         return False, f"Invalid state code in CIN: {state_code}"
 
-    # ---------------- Year of incorporation ----------------
-    year = int(cin[8:12])
+    # ---------------- Year of Incorporation ----------------
+    year_str = cin[8:12]
+
+    if not year_str.isdigit():
+        return False, "Year of incorporation in CIN must be numeric"
+
+    year = int(year_str)
     current_year = date.today().year
 
-    if year < 1950 or year > current_year:
-        return False, f"Invalid year of incorporation in CIN: {year}"
+    if year < 1950:
+        return False, "Year of incorporation cannot be before 1950"
 
-    # ---------------- Company classification ----------------
+    if year > current_year:
+        return False, f"Year of incorporation cannot be in the future ({year})"
+
+    # ---------------- Company Classification ----------------
     company_type = cin[12:15]
     if company_type not in VALID_COMPANY_TYPES:
         return False, f"Invalid company classification in CIN: {company_type}"
 
-    # ---------------- ROC number ----------------
+    # ---------------- ROC Number ----------------
     roc_number = cin[15:]
     if not roc_number.isdigit():
         return False, "Invalid ROC registration number in CIN"

@@ -58,9 +58,16 @@ def validate_borrower_profile(data: dict):
     # ---------------- Contact ----------------
     if not data.get("contact_person"):
         errors.append("Contact Person is mandatory")
-
-    if not re.fullmatch(r"[^@]+@[^@]+\.[^@]+", data.get("email") or ""):
+    # ---------------- Email ----------------
+    email = data.get("email")
+    
+    if not email:
+        errors.append("Email is mandatory")
+    else:
+        email_regex = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+    if not re.fullmatch(email_regex, email.strip()):
         errors.append("Invalid Email format")
+
 
     # Phone stored as digits only (10-digit India number)
     if not re.fullmatch(r"\d{10}", data.get("phone") or ""):

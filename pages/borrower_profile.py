@@ -146,7 +146,7 @@ def render_borrower_profile():
             "phone": st.session_state.phone,
         }
 
-        errors, _ = validate_borrower_profile(form_data)
+        errors = validate_borrower_profile(form_data)
 
         if errors:
             st.error("Please fix the following:")

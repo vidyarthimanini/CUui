@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date
 from validation.borrower_profile_rules import validate_borrower_profile
 from validation.pincode_validator import validate_and_resolve_pincode
-
+from validation.cin_validator import validate_cin
 
 # ------------------ Helpers ------------------
 def handle_pincode_change():
@@ -82,6 +82,14 @@ def render_borrower_profile():
     with c2:
         cin = st.text_input("CIN Number *")
         industry = st.text_input("Industry / Sub-sector")
+        cin_ok = False
+    if cin:
+        cin_ok, cin_msg = validate_cin(cin)
+        if not cin_ok:
+            st.error("Cannot proceed: CIN is invalid")
+        else:
+            st.success("✔ Valid CIN")
+
 
     # ✅ FIXED INDENTATION (this was the crash)
     registration_date = st.date_input(

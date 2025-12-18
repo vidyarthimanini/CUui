@@ -159,7 +159,7 @@ def render_borrower_profile():
     )
 
     # ---------------- Submit ----------------
-    if st.button("Continue ➡️"):
+    if st.button("Continue "):
 
         form_data = {
             "company_name": company_name,

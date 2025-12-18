@@ -29,9 +29,10 @@ def validate_borrower_profile(data: dict):
     if not data.get("address"):
         errors.append("Registered Address is mandatory")
   # ---------------- PAN ----------------
-    ok, msg = validate_pan(data.get("pan"))
-    if not ok:
-        errors.append(msg)
+       pan_ok, pan_msg = validate_pan(data.get("pan"))
+    if not pan_ok:
+        errors.append(pan_msg)
+
 
     # ---------------- GSTIN ----------------
     ok, msg = validate_gstin(

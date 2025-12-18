@@ -3,6 +3,8 @@ from datetime import date
 from validation.borrower_profile_rules import validate_borrower_profile
 from validation.pincode_validator import validate_and_resolve_pincode
 from validation.cin_validator import validate_cin
+from validation.pan_validator import validate_pan
+from validation.gstin_validator import validate_gstin
 
 # ------------------ Helpers ------------------
 def handle_pincode_change():

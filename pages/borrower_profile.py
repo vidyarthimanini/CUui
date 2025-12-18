@@ -38,7 +38,7 @@ def handle_phone_change():
 # ------------------ Page ------------------
 def render_borrower_profile():
 
-    st.subheader("📁 Borrower Profile")
+    st.subheader(" Borrower Profile")
 
     # ---- Init session state ----
     for k in ["city", "state", "pincode", "phone"]:

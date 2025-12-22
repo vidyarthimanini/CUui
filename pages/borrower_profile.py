@@ -37,6 +37,7 @@ def handle_phone_change():
 
 # ------------------ Page ------------------
 def render_borrower_profile():
+    st.error("🚨 BORROWER PROFILE FILE IS RUNNING")
 
     st.subheader("📁 Borrower Profile")
 
@@ -133,8 +134,6 @@ def render_borrower_profile():
             c10.error(gstin_msg)
         else:
             c10.success("✔ Valid GSTIN")
-            
-    st.write("DEBUG: Aadhaar section rendering")
 
     # Aadhaar
     aadhaar = c11.text_input(
@@ -150,6 +149,7 @@ def render_borrower_profile():
             c11.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
 
     # ---------------- Contact ----------------
+     st.markdown("### Contact")
     c6, c7, c8 = st.columns(3)
 
     contact_person = c6.text_input("Contact Person *")

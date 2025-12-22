@@ -12,29 +12,6 @@ st.set_page_config(
 # -------------------------------------------------
 # SIDEBAR NAVIGATION (BUTTON PANE)
 # -------------------------------------------------
-st.sidebar.title(" Corporate Credit Underwriting")
-
-PAGES = [
-    "Borrower Profile",
-    "Financial Data",
-    "Banking Conduct",
-    "Loan Request",
-    "Assessment",
-    "Documents",
-    "AI Scorecard",
-    "Tools"
-]
-
-# Initialize page state
-if "page" not in st.session_state:
-    st.session_state.page = "Borrower Profile"
-
-# Render navigation buttons
-for p in PAGES:
-    if st.sidebar.button(p, use_container_width=True):
-        st.session_state.page = p
-
-page = st.session_state.page
 
 # -------------------------------------------------
 # HEADER

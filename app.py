@@ -13,7 +13,7 @@ st.set_page_config(
 # -------------------------------------------------
 # SIDEBAR NAVIGATION (BUTTON PANE)
 # -------------------------------------------------
-st.sidebar.title(" Corporate Credit Underwriting")
+st.sidebar.title("Home")
  
 PAGES = [
     "Borrower Profile",

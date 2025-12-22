@@ -6,6 +6,8 @@ from validation.pincode_validator import validate_and_resolve_pincode
 from validation.cin_validator import validate_cin
 from validation.pan_validator import validate_pan
 from validation.gstin_validator import validate_gstin
+from validation.aadhaar_validator import validate_aadhaar
+
 
 # ------------------ Helpers ------------------
 def handle_pincode_change():
@@ -138,6 +140,21 @@ def render_borrower_profile():
             c10.error(gstin_msg)
         else:
             c10.success("✔ Valid GSTIN")
+            # ---------------- Aadhaar ----------------
+    aadhaar = st.text_input(
+        "Aadhaar Number *",
+        max_chars=12,
+        help="12-digit Aadhaar number"
+    )
+    
+    aadhaar_ok = False
+    if aadhaar:
+        aadhaar_ok, aadhaar_msg = validate_aadhaar(aadhaar)
+        if not aadhaar_ok:
+            st.error(aadhaar_msg)
+        else:
+            st.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
+
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)
 

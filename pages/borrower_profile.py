@@ -121,7 +121,7 @@ def render_borrower_profile():
     # ---------------- Legal Identifiers ----------------
     st.markdown("### Legal Identifiers")
 
-    c9, c10 = st.columns(2)
+    c9, c10, c11= st.columns(2)
        # ---------- PAN ----------
     pan = c9.text_input("PAN *", max_chars=10)
     
@@ -141,7 +141,7 @@ def render_borrower_profile():
         else:
             c10.success("✔ Valid GSTIN")
             # ---------------- Aadhaar ----------------
-    aadhaar = st.text_input(
+    aadhaar = c11.text_input(
         "Aadhaar Number *",
         max_chars=12,
         help="12-digit Aadhaar number"
@@ -151,9 +151,9 @@ def render_borrower_profile():
     if aadhaar:
         aadhaar_ok, aadhaar_msg = validate_aadhaar(aadhaar)
         if not aadhaar_ok:
-            st.error(aadhaar_msg)
+            c11.error(aadhaar_msg)
         else:
-            st.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
+            c11.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
 
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)

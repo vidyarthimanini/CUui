@@ -9,7 +9,6 @@ from validation.pan_validator import validate_pan
 from validation.gstin_validator import validate_gstin
 from validation.aadhaar_validator import validate_aadhaar
 
-st.write("loaded")
 # ------------------ Helpers ------------------
 def handle_pincode_change():
     raw = st.session_state.get("pincode", "")

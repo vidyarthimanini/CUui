@@ -1,6 +1,6 @@
 import streamlit as st
 from ui_pages.borrower_profile import render_borrower_profile
-from pages.documents import render_documents
+from ui_pages.documents import render_documents
 
 # -------------------------------------------------
 # PAGE CONFIG

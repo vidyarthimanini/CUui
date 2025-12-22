@@ -133,6 +133,8 @@ def render_borrower_profile():
             c10.error(gstin_msg)
         else:
             c10.success("✔ Valid GSTIN")
+            
+    st.write("DEBUG: Aadhaar section rendering")
 
     # Aadhaar
     aadhaar = c11.text_input(

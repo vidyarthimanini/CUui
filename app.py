@@ -1,6 +1,7 @@
 import streamlit as st
 from ui_pages.borrower_profile import render_borrower_profile
- 
+from pages.documents import render_documents
+
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
@@ -60,9 +61,10 @@ elif page == "Loan Request":
  
 elif page == "Assessment":
     st.info("Assessment page (to be implemented)")
- 
+
 elif page == "Documents":
-    st.info("Documents page (to be implemented)")
+      render_documents()
+
  
 elif page == "AI Scorecard":
     st.info("AI Scorecard page (to be implemented)")

@@ -144,7 +144,7 @@ def render_borrower_profile():
     aadhaar = c11.text_input(
         "Aadhaar Number *",
         max_chars=12,
-        help="12-digit Aadhaar number"
+        help="12-digit Aadhaar number (numeric only)"
     )
     
     aadhaar_ok = False
@@ -153,7 +153,7 @@ def render_borrower_profile():
         if not aadhaar_ok:
             c11.error(aadhaar_msg)
         else:
-            c11.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
+            c11.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")  
 
     # ---------------- Contact ----------------
     c6, c7, c8 = st.columns(3)

@@ -149,7 +149,7 @@ def render_borrower_profile():
             c11.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
 
     # ---------------- Contact ----------------
-     st.markdown("### Contact")
+    st.markdown("### Contact")
     c6, c7, c8 = st.columns(3)
 
     contact_person = c6.text_input("Contact Person *")

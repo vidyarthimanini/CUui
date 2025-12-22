@@ -121,7 +121,7 @@ def render_borrower_profile():
     # ---------------- Legal Identifiers ----------------
     st.markdown("### Legal Identifiers")
 
-    c9, c10, c11= st.columns(2)
+    c9, c10, c11= st.columns(3)
        # ---------- PAN ----------
     pan = c9.text_input("PAN *", max_chars=10)
     

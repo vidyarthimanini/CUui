@@ -36,9 +36,8 @@ def handle_phone_change():
 
 # ------------------ Page ------------------
 def render_borrower_profile():
-    st.error("🚨 BORROWER PROFILE FILE IS RUNNING")
 
-    st.subheader("📁 Borrower Profile")
+    st.subheader(" Borrower Profile")
 
     for k in ["city", "state", "pincode", "phone"]:
         if k not in st.session_state:

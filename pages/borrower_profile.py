@@ -186,6 +186,7 @@ def render_borrower_profile():
             "cin": cin,
             "pan": pan,
             "gstin": gstin,
+            "aadhaar": aadhaar,
             "registration_date": registration_date,
             "address": address,
             "city": st.session_state.city,

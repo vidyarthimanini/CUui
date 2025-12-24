@@ -11,30 +11,34 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# CUSTOM SIDEBAR STYLING
+# SIDEBAR CSS (CRITICAL)
 # -------------------------------------------------
 st.markdown(
     """
     <style>
-    .sidebar-nav button {
-        background: transparent;
-        border: none;
+    section[data-testid="stSidebar"] {
+        background-color: #f8fafc;
+    }
+    .nav-item {
         padding: 10px 14px;
-        width: 100%;
-        text-align: left;
-        font-size: 14px;
+        margin: 4px 0;
         border-radius: 8px;
-        margin-bottom: 4px;
+        font-size: 14px;
         color: #334155;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
-    .sidebar-nav button:hover {
-        background-color: #eef2ff;
+    .nav-item:hover {
+        background-color: #e5e7eb;
     }
-    .sidebar-active {
-        background-color: #e0e7ff !important;
-        color: #1d4ed8 !important;
+    .nav-active {
+        background-color: #e0e7ff;
+        color: #1d4ed8;
         font-weight: 600;
+        border-left: 4px solid #2563eb;
+        padding-left: 10px;
     }
     </style>
     """,
@@ -42,10 +46,8 @@ st.markdown(
 )
 
 # -------------------------------------------------
-# SIDEBAR NAVIGATION
+# NAV CONFIG
 # -------------------------------------------------
-st.sidebar.markdown("## 🏠 Home")
-
 NAV_ITEMS = [
     ("Borrower Profile", "📄"),
     ("Financial Data", "📊"),
@@ -57,28 +59,24 @@ NAV_ITEMS = [
     ("Tools", "🛠️"),
 ]
 
-# Initialize page state
 if "page" not in st.session_state:
     st.session_state.page = "Borrower Profile"
 
-st.sidebar.markdown('<div class="sidebar-nav">', unsafe_allow_html=True)
+# -------------------------------------------------
+# SIDEBAR RENDER
+# -------------------------------------------------
+st.sidebar.markdown("### Corporate Credit Underwriting")
 
 for label, icon in NAV_ITEMS:
-    is_active = st.session_state.page == label
-    btn_class = "sidebar-active" if is_active else ""
+    active = st.session_state.page == label
+    css_class = "nav-item nav-active" if active else "nav-item"
 
-    clicked = st.sidebar.button(
+    if st.sidebar.button(
         f"{icon}  {label}",
         key=f"nav_{label}",
         use_container_width=True
-    )
-
-    if clicked:
+    ):
         st.session_state.page = label
-
-st.sidebar.markdown("</div>", unsafe_allow_html=True)
-
-page = st.session_state.page
 
 # -------------------------------------------------
 # HEADER
@@ -88,28 +86,15 @@ st.caption("Comprehensive credit assessment platform")
 st.divider()
 
 # -------------------------------------------------
-# PAGE ROUTING
+# ROUTING
 # -------------------------------------------------
+page = st.session_state.page
+
 if page == "Borrower Profile":
     render_borrower_profile()
-
-elif page == "Financial Data":
-    st.info("Financial Data page (to be implemented)")
-
-elif page == "Banking Conduct":
-    st.info("Banking Conduct page (to be implemented)")
-
-elif page == "Loan Request":
-    st.info("Loan Request page (to be implemented)")
-
-elif page == "Assessment":
-    st.info("Assessment page (to be implemented)")
 
 elif page == "Documents":
     render_documents()
 
-elif page == "AI Scorecard":
-    st.info("AI Scorecard page (to be implemented)")
-
-elif page == "Tools":
-    st.info("Tools page (to be implemented)")
+else:
+    st.info(f"{page} page coming soon.")

@@ -51,7 +51,7 @@ if page == "Borrower Profile":
     render_borrower_profile()
 
 elif page == "Financial Data":
-    st.info("Financial Data page (to be implemented)")
+    render_financial_data()
 
 elif page == "Banking Conduct":
     st.info("Banking Conduct page (to be implemented)")

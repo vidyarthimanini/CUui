@@ -49,14 +49,14 @@ st.markdown(
 # NAV CONFIG
 # -------------------------------------------------
 NAV_ITEMS = [
-    ("Borrower Profile", "📄"),
-    ("Financial Data", "📊"),
-    ("Banking Conduct", "🏦"),
-    ("Loan Request", "💰"),
-    ("Assessment", "🧠"),
-    ("Documents", "📎"),
-    ("AI Scorecard", "🤖"),
-    ("Tools", "🛠️"),
+    ("Borrower Profile"),
+    ("Financial Data"),
+    ("Banking Conduct"),
+    ("Loan Request"),
+    ("Assessment"),
+    ("Documents"),
+    ("AI Scorecard"),
+    ("Tools"),
 ]
 
 if "page" not in st.session_state:

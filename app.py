@@ -1,7 +1,6 @@
 import streamlit as st
 from ui_pages.borrower_profile import render_borrower_profile
 from ui_pages.documents import render_documents
-from ui_pages.financial_data import render_financial_data
 
 # -------------------------------------------------
 # PAGE CONFIG

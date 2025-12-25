@@ -102,7 +102,7 @@ def render_financial_data():
         ],
     })
 
-    st.dataframe(df, width=True)
+    st.dataframe(df, user_container_width=True)
 
     # ================= NAV =================
     b1, b2 = st.columns(2)

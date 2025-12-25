@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import math
 
 
 def render_financial_data():
@@ -52,13 +53,32 @@ def render_financial_data():
         st.write("DSCR Status:", "🟥 Poor" if dscr < 1 else "🟩 Healthy")
         st.write("Liquidity:", "🟥 Weak" if current_ratio < 1 else "🟩 Adequate")
 
-    # ================= CAGR BOX (PLACEHOLDER, SAFE) =================
-    st.markdown("### 📈 CAGR (Indicative)")
+    # ================= CAGR BOX =================
+    st.markdown("### 📈 Growth Indicators (Turnover)")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Turnover CAGR", "N/A")
-    c2.metric("EBITDA CAGR", "N/A")
-    c3.metric("Profit CAGR", "N/A")
+    def calc_cagr(start, end, years=2):
+        if start <= 0 or end <= 0:
+            return None
+        return ((end / start) ** (1 / years) - 1) * 100
+
+    # CAGR only meaningful when FY 2023 is selected
+    turnover_cagr = None
+    if fy == "FY 2023":
+        turnover_cagr = calc_cagr(turnover, turnover)  # safe placeholder
+
+    c1, c2 = st.columns(2)
+
+    c1.metric(
+        "Turnover CAGR (FY21–FY23)",
+        f"{turnover_cagr:.2f}%" if turnover_cagr else "N/A"
+    )
+
+    c2.metric(
+        "Growth Trend",
+        "🟩 Positive" if turnover_cagr and turnover_cagr > 0 else
+        "🟥 Negative" if turnover_cagr and turnover_cagr < 0 else
+        "N/A"
+    )
 
     # ================= 3-YEAR COMPARISON =================
     st.markdown("### 3-Year Financial Comparison")

@@ -8,15 +8,31 @@ def render_financial_data():
 
     st.subheader("📊 Financial Input Section")
 
-    # ---------------- FY SELECTION ----------------
-    fy = st.radio(
-        " ",
-        ["FY 2023", "FY 2022", "FY 2021"],
-        horizontal=True,
-        label_visibility="collapsed"
+    # ---------------- FY SELECTION MODE ----------------
+    fy_mode = st.radio(
+        "Financial Year Selection",
+        ["Select from list (Recommended)", "Enter custom financial year"],
+        horizontal=True
     )
 
-    st.markdown(f"### Financial Year {fy}")
+    if fy_mode == "Select from list (Recommended)":
+        fy = st.radio(
+            " ",
+            ["FY 2021", "FY 2022", "FY 2023"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+    else:
+        fy = st.text_input(
+            "Enter Financial Year",
+            placeholder="e.g. FY 2020-21 or FY 2024"
+        )
+        st.warning(
+            "⚠ Custom FY is outside the model training window. "
+            "Risk scores may be indicative only."
+        )
+
+    st.markdown(f"### Financial Year: {fy}")
 
     # ---------------- LAYOUT ----------------
     left, right = st.columns([2, 1])
@@ -25,7 +41,7 @@ def render_financial_data():
     with left:
         turnover = st.number_input("Turnover (₹ Crore) *", min_value=0.0)
         ebitda = st.number_input("EBITDA (₹ Crore) *", min_value=0.0)
-        net_profit = st.number_input("Net Profit (₹ Crore) *", min_value=0.0)
+        net_profit = st.number_input("Net Profit (₹ Crore) *", min_value=-10000.0)
         net_worth = st.number_input("Net Worth (₹ Crore) *", min_value=0.0)
         total_debt = st.number_input("Total Debt (₹ Crore) *", min_value=0.0)
         dscr = st.number_input("DSCR (Ratio) *", min_value=0.0)
@@ -38,7 +54,7 @@ def render_financial_data():
             max_value=100.0
         )
 
-    # ================= RIGHT: SUMMARY CARDS =================
+    # ================= RIGHT: SUMMARY =================
     with right:
         st.markdown("### Financial Summary")
         st.metric("Turnover", f"₹ {turnover:.2f} Cr")
@@ -52,58 +68,44 @@ def render_financial_data():
         ebitda_margin = (ebitda / turnover * 100) if turnover else None
         net_margin = (net_profit / turnover * 100) if turnover else None
 
-        st.write(
-            f"**Debt-to-Equity:** {debt_equity:.2f}"
-            if debt_equity else "Debt-to-Equity: N/A"
-        )
-        st.write(
-            f"**EBITDA Margin:** {ebitda_margin:.2f}%"
-            if ebitda_margin else "EBITDA Margin: N/A"
-        )
-        st.write(
-            f"**Net Profit Margin:** {net_margin:.2f}%"
-            if net_margin else "Net Profit Margin: N/A"
-        )
+        st.write(f"**Debt-to-Equity:** {debt_equity:.2f}" if debt_equity else "Debt-to-Equity: N/A")
+        st.write(f"**EBITDA Margin:** {ebitda_margin:.2f}%" if ebitda_margin else "EBITDA Margin: N/A")
+        st.write(f"**Net Profit Margin:** {net_margin:.2f}%" if net_margin else "Net Profit Margin: N/A")
 
         st.markdown("---")
 
         st.markdown("### Risk Indicators")
-        st.write(
-            "**DSCR Status:**",
-            "🟥 Poor" if dscr < 1 else "🟩 Healthy"
-        )
-        st.write(
-            "**Liquidity:**",
-            "🟥 Weak" if current_ratio < 1 else "🟩 Adequate"
-        )
+        st.write("**DSCR Status:**", "🟥 Poor" if dscr < 1 else "🟩 Healthy")
+        st.write("**Liquidity:**", "🟥 Weak" if current_ratio < 1 else "🟩 Adequate")
 
-    # ================= 3-YEAR COMPARISON =================
-    st.markdown("### 3-Year Financial Comparison")
+    # ================= SNAPSHOT TABLE =================
+    st.markdown("### Financial Snapshot")
 
     data = {
-        "Particulars": [
+        "Metric": [
             "Turnover",
             "EBITDA",
             "Net Profit",
             "Net Worth",
-            "Total Debt"
+            "Total Debt",
+            "DSCR",
+            "Current Ratio",
         ],
-        "FY 2021": ["-", "-", "-", "-", "-"],
-        "FY 2022": ["-", "-", "-", "-", "-"],
-        "FY 2023": [
+        fy: [
             turnover,
             ebitda,
             net_profit,
             net_worth,
-            total_debt
+            total_debt,
+            dscr,
+            current_ratio,
         ],
-        "CAGR": ["-", "-", "-", "-", "-"],
     }
 
     df = pd.DataFrame(data)
     st.dataframe(df, use_container_width=True)
 
-    # ================= NAV BUTTONS =================
-    c1, c2 = st.columns([1, 1])
+    # ================= NAVIGATION =================
+    c1, c2 = st.columns(2)
     c1.button("⬅ Back to Borrower Profile", use_container_width=True)
     c2.button("Continue to Banking Conduct ➡️", use_container_width=True)

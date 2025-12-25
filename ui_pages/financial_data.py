@@ -93,7 +93,7 @@ def render_financial_data():
         st.write("**Liquidity:**", "🟥 Weak" if current_ratio < 1 else "🟩 Adequate")
 
     # ================= SNAPSHOT TABLE =================
-    st.markdown("### 3-Year Financial Snapshot")
+    st.markdown("### 3-Year Financial Comparison")
 
     df = pd.DataFrame({
         "Metric": [

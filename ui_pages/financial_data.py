@@ -9,28 +9,31 @@ def render_financial_data():
     st.subheader("📊 Financial Input Section")
 
     # ---------------- FY SELECTION MODE ----------------
-    fy_mode = st.radio(
-        "Financial Year Selection",
-        ["Select from list (Recommended)", "Enter custom financial year"],
-        horizontal=True
+fy_mode = st.radio(
+    "Financial Year Selection",
+    ["Select from list (Recommended)", "Enter custom financial year"],
+    horizontal=True,
+    key="fy_mode"
+)
+
+if fy_mode == "Select from list (Recommended)":
+    fy = st.radio(
+        "Select Financial Year",
+        ["FY 2021", "FY 2022", "FY 2023"],
+        horizontal=True,
+        key="fy_select"
+    )
+else:
+    fy = st.text_input(
+        "Enter Financial Year",
+        placeholder="e.g. FY 2020-21 or FY 2024",
+        key="fy_custom"
+    )
+    st.warning(
+        "⚠ Custom FY is outside the model training window. "
+        "Risk scores may be indicative only."
     )
 
-    if fy_mode == "Select from list (Recommended)":
-        fy = st.radio(
-            " ",
-            ["FY 2021", "FY 2022", "FY 2023"],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-    else:
-        fy = st.text_input(
-            "Enter Financial Year",
-            placeholder="e.g. FY 2020-21 or FY 2024"
-        )
-        st.warning(
-            "⚠ Custom FY is outside the model training window. "
-            "Risk scores may be indicative only."
-        )
 
     st.markdown(f"### Financial Year: {fy}")
 

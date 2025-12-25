@@ -154,3 +154,14 @@ def render_financial_data():
     })
 
     st.dataframe(df, width="stretch")
+     # ---------- NAV BUTTONS ----------
+    st.divider()
+    nav1, nav2 = st.columns(2)
+
+    with nav1:
+        if st.button("⬅ Back to Borrower Profile", width="stretch"):
+            st.session_state.page = "Borrower Profile"
+
+    with nav2:
+        if st.button("Continue to Banking Conduct ➡️", width="stretch"):
+            st.session_state.page = "Banking Conduct"

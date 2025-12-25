@@ -102,9 +102,9 @@ def render_financial_data():
         ],
     })
 
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width=True)
 
     # ================= NAV =================
     b1, b2 = st.columns(2)
-    b1.button("⬅ Back to Borrower Profile", use_container_width=True)
-    b2.button("Continue to Banking Conduct ➡️", use_container_width=True)
+    b1.button("⬅ Back to Borrower Profile", width=True)
+    b2.button("Continue to Banking Conduct ➡️", width=True)

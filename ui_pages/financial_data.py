@@ -95,24 +95,32 @@ def render_financial_data():
     # ================= SNAPSHOT TABLE =================
     st.markdown("### 3-Year Financial Comparison")
 
-    df = pd.DataFrame({
-        "Metric": [
-            "Turnover",
-            "EBITDA",
-            "Net Profit",
-            "Net Worth",
-            "Total Debt",
-        ],
-        fy: [
-            turnover,
-            ebitda,
-            net_profit,
-            net_worth,
-            total_debt,
-        ],
-    })
+    rows = [
+        "Turnover",
+        "EBITDA",
+        "Net Profit",
+        "Net Worth",
+        "Total Debt",
+    ]
 
+    table = {"Particulars": rows}
+
+    for year in ["FY 2021", "FY 2022", "FY 2023"]:
+        y = st.session_state.financials[year]
+        table[year] = [
+            y.get("turnover", "-"),
+            y.get("ebitda", "-"),
+            y.get("net_profit", "-"),
+            y.get("net_worth", "-"),
+            y.get("total_debt", "-"),
+        ]
+
+    table["CAGR"] = ["-"] * len(rows)
+
+    df = pd.DataFrame(table)
     st.dataframe(df, use_container_width=True)
+
+ 
 
     # ================= NAV =================
     c1, c2 = st.columns(2)

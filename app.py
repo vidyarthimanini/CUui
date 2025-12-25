@@ -2,6 +2,7 @@ import streamlit as st
 from ui_pages.borrower_profile import render_borrower_profile
 from ui_pages.documents import render_documents
 from ui_pages.financial_data import render_financial_data
+from ui_pages.banking_conduct import render_banking_conduct
 
 
 # -------------------------------------------------
@@ -56,7 +57,7 @@ elif page == "Financial Data":
     render_financial_data()
 
 elif page == "Banking Conduct":
-    st.info("Banking Conduct page (to be implemented)")
+    render_banking_conduct()
 
 elif page == "Loan Request":
     st.info("Loan Request page (to be implemented)")

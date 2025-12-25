@@ -76,6 +76,20 @@ def render_financial_data():
             value=data.get("current_ratio", 0.0),
             key=f"{fy}_current_ratio"
         )
+        data["credit_utilization"] = st.number_input(
+            "Credit Utilization (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=data.get("credit_utilization", 0.0),
+            key=f"{fy}_credit_utilization"
+        )
+        
+        data["roce"] = st.number_input(
+            "ROCE (%)",
+            value=data.get("roce", 0.0),
+            key=f"{fy}_roce"
+        )
+
 
     # ---------- CALCULATIONS ----------
     turnover = data["turnover"]

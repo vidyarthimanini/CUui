@@ -106,5 +106,5 @@ def render_financial_data():
 
     # ================= NAV =================
     b1, b2 = st.columns(2)
-    b1.button("⬅ Back to Borrower Profile", width=True)
-    b2.button("Continue to Banking Conduct ➡️", width=True)
+    b1.button("⬅ Back to Borrower Profile", use_container_width=True)
+    b2.button("Continue to Banking Conduct ➡️", use_container_width=True)

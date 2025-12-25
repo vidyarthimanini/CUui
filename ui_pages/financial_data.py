@@ -38,7 +38,7 @@ def render_financial_data():
     with left:
         turnover = st.number_input("Turnover (₹ Crore) *", min_value=0.0)
         ebitda = st.number_input("EBITDA (₹ Crore) *", min_value=0.0)
-        net_profit = st.number_input("Net Profit (₹ Crore) *", min_value=-10000.0)
+        net_profit = st.number_input("Net Profit (₹ Crore) *", min_value=0.0)
         net_worth = st.number_input("Net Worth (₹ Crore) *", min_value=0.0)
         total_debt = st.number_input("Total Debt (₹ Crore) *", min_value=0.0)
         dscr = st.number_input("DSCR (Ratio) *", min_value=0.0)
@@ -102,9 +102,6 @@ def render_financial_data():
             "Net Profit",
             "Net Worth",
             "Total Debt",
-            "Debt-to-Equity",
-            "EBITDA Margin (%)",
-            "Net Profit Margin (%)",
         ],
         fy: [
             turnover,
@@ -112,9 +109,6 @@ def render_financial_data():
             net_profit,
             net_worth,
             total_debt,
-            round(debt_equity, 2) if debt_equity else None,
-            round(ebitda_margin, 2) if ebitda_margin else None,
-            round(net_profit_margin, 2) if net_profit_margin else None,
         ],
     })
 

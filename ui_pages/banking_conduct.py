@@ -1,195 +1,192 @@
 import streamlit as st
 
+# ============================================================
+# BANKING CONDUCT — SAVE ONLY PAGE
+# ============================================================
+
 def render_banking_conduct():
-    st.markdown("### 🏦 Banking Conduct")
 
-    # -------------------------------
+    st.subheader("🏦 Banking Conduct")
+
+    # --------------------------------------------------------
+    # INIT CENTRAL SESSION STORE
+    # --------------------------------------------------------
+    if "data" not in st.session_state:
+        st.session_state.data = {}
+
+    if "banking_conduct" not in st.session_state.data:
+        st.session_state.data["banking_conduct"] = {}
+
+    bc = st.session_state.data["banking_conduct"]
+
+    # --------------------------------------------------------
     # CREDIT BUREAU INFORMATION
-    # -------------------------------
-    st.markdown("#### Credit Bureau Information")
-    col1, col2 = st.columns(2)
+    # --------------------------------------------------------
+    st.markdown("### Credit Bureau Information")
 
-    with col1:
-        cibil = st.number_input(
+    c1, c2 = st.columns(2)
+
+    with c1:
+        cibil_score = st.number_input(
             "CIBIL Score *",
             min_value=300,
             max_value=900,
+            value=int(bc.get("cibil_score", 300)),
             step=1
         )
 
-        avg_balance = st.number_input(
-            "Average Bank Balance (Last 6 Months) *",
-            min_value=0.0,
-            step=1.0,
-            format="%.2f",
-            help="Amount in lakhs"
-        )
-
-    with col2:
-        crif = st.number_input(
+    with c2:
+        crif_score = st.number_input(
             "CRIF Score",
             min_value=300,
             max_value=900,
+            value=int(bc.get("crif_score", 300)),
             step=1
         )
-        bounced = st.number_input(
+
+    # --------------------------------------------------------
+    # ACCOUNT CONDUCT
+    # --------------------------------------------------------
+    st.markdown("### Account Conduct")
+
+    c3, c4 = st.columns(2)
+
+    with c3:
+        avg_bank_balance = st.number_input(
+            "Average Bank Balance (Last 6 Months) * (₹ Lakh)",
+            min_value=0.0,
+            value=float(bc.get("avg_bank_balance_lakh", 0.0)),
+            step=0.1
+        )
+
+    with c4:
+        bounced_cheques = st.number_input(
             "Bounced Cheques (Count)",
             min_value=0,
-            step=1
-        )
-        overdrafts = st.number_input(
-            "Overdrafts (Count)",
-            min_value=0,
+            value=int(bc.get("bounced_cheques", 0)),
             step=1
         )
 
-    st.divider()
+    overdrafts = st.number_input(
+        "Overdrafts (Count)",
+        min_value=0,
+        value=int(bc.get("overdrafts", 0)),
+        step=1
+    )
 
-    # -------------------------------
-    # REPAYMENT BEHAVIOUR (DPD)
-    # -------------------------------
-    st.markdown("#### Repayment Behaviour")
+    # --------------------------------------------------------
+    # REPAYMENT BEHAVIOUR
+    # --------------------------------------------------------
+    st.markdown("### Repayment Behaviour")
 
-    d1, d2 = st.columns(2)
+    c5, c6 = st.columns(2)
 
-    with d1:
-        dpd30_6m = st.number_input(
-            "30+ DPD Instances (Last 6 Months)",
+    with c5:
+        max_dpd = st.number_input(
+            "Maximum DPD Observed",
             min_value=0,
+            value=int(bc.get("max_dpd", 0)),
             step=1,
-            help="Number of instalments delayed by 30+ days in the last 6 months"
+            help="Maximum days past due observed across accounts"
         )
 
-        max_dpd_current = st.number_input(
-            "Max DPD – Current Loan (Last 6 Months)",
-            min_value=0,
-            step=1,
-            help="Highest number of days past due on the current loan in last 6 months"
+    with c6:
+        sma_classification = st.selectbox(
+            "SMA Classification",
+            ["SMA-0", "SMA-1", "SMA-2"],
+            index=["SMA-0", "SMA-1", "SMA-2"].index(
+                bc.get("sma_classification", "SMA-0")
+            )
         )
 
-        months_since_60dpd = st.number_input(
-            "Months Since Last 60+ DPD",
-            min_value=0,
-            step=1,
-            help="Months since the most recent 60+ DPD event"
-        )
+    cross_bank_npa = st.selectbox(
+        "Cross-Bank NPA Tag",
+        ["No", "Yes"],
+        index=["No", "Yes"].index(bc.get("cross_bank_npa", "No"))
+    )
 
-    with d2:
-        dpd60_12m = st.number_input(
-            "60+ DPD Instances (Last 12 Months)",
-            min_value=0,
-            step=1,
-            help="Number of instalments delayed by 60+ days in the last 12 months"
-        )
+    # --------------------------------------------------------
+    # BANKING USAGE & COMPLIANCE
+    # --------------------------------------------------------
+    st.markdown("### Banking Usage & Compliance")
 
-        max_dpd_entity = st.number_input(
-            "Max DPD – All Loans (Entity Level)",
-            min_value=0,
-            step=1,
-            help="Highest days past due across all lenders (entity-level)"
-        )
+    c7, c8 = st.columns(2)
 
-    st.divider()
-
-    # -------------------------------
-    # COMPLIANCE & EXPOSURE
-    # -------------------------------
-    st.markdown("#### Compliance & Exposure")
-    col3, col4 = st.columns(2)
-
-    with col3:
-        gst_compliance = st.radio(
-            "GST Filing Compliance *",
-            ["Regular", "Irregular"],
-            horizontal=True
-        )
-
-    with col4:
-        crilc = st.number_input(
-            "CRILC Exposure (₹5 Cr+ loans)",
+    with c7:
+        credit_utilization = st.number_input(
+            "Credit Utilization (%)",
             min_value=0.0,
-            step=1.0,
-            format="%.2f",
-            help="Total bank-wise exposure in ₹ Crore"
-        )
-        npa_tag = st.radio(
-            "Cross-Bank NPA Tag",
-            ["No", "Yes"],
-            horizontal=True
-        )
-        relationship_vintage = st.text_input(
-            "Banking Relationship Vintage",
-            placeholder="e.g., 5 years with primary banker"
+            max_value=100.0,
+            value=float(bc.get("credit_utilization_pct", 0.0)),
+            step=1.0
         )
 
+    with c8:
+        gst_filing = st.selectbox(
+            "GST Filing Compliance",
+            ["Regular", "Delayed", "Non-Compliant"],
+            index=["Regular", "Delayed", "Non-Compliant"].index(
+                bc.get("gst_filing_compliance", "Regular")
+            )
+        )
+
+    # --------------------------------------------------------
+    # BANKING RELATIONSHIP
+    # --------------------------------------------------------
+    st.markdown("### Banking Relationship")
+
+    c9, c10 = st.columns(2)
+
+    with c9:
+        banking_vintage = st.number_input(
+            "Banking Relationship Vintage (Years)",
+            min_value=0,
+            value=int(bc.get("banking_vintage_years", 0)),
+            step=1
+        )
+
+    with c10:
+        primary_bank = st.text_input(
+            "Primary Bank Name",
+            value=bc.get("primary_bank", "")
+        )
+
+    account_type = st.selectbox(
+        "Account Type",
+        ["Savings", "Current", "CC", "OD"],
+        index=["Savings", "Current", "CC", "OD"].index(
+            bc.get("account_type", "Current")
+        )
+    )
+
+    # --------------------------------------------------------
+    # SAVE ONLY
+    # --------------------------------------------------------
     st.divider()
 
-    # -------------------------------
-    # BANK ACCOUNT DETAILS
-    # -------------------------------
-    st.markdown("#### Bank Account Details")
+    if st.button("Save & Continue ➡️", width="stretch"):
 
-    with st.container():
-        c1, c2, c3, c4, c5 = st.columns([2, 2, 1, 1, 2])
+        st.session_state.data["banking_conduct"] = {
+            "cibil_score": cibil_score,
+            "crif_score": crif_score,
 
-        with c1:
-            bank_name = st.text_input("Bank Name")
+            "avg_bank_balance_lakh": avg_bank_balance,
+            "bounced_cheques": bounced_cheques,
+            "overdrafts": overdrafts,
 
-        with c2:
-            account_type = st.selectbox(
-                "Account Type",
-                ["Select", "Current", "Savings", "CC", "OD"]
-            )
+            "max_dpd": max_dpd,
+            "sma_classification": sma_classification,
+            "cross_bank_npa": cross_bank_npa,
 
-        with c3:
-            vintage_years = st.number_input(
-                "Vintage (Years)",
-                min_value=0,
-                step=1
-            )
+            "credit_utilization_pct": credit_utilization,
+            "gst_filing_compliance": gst_filing,
 
-        with c4:
-            avg_bal = st.number_input(
-                "Avg Balance (₹L)",
-                min_value=0.0,
-                step=1.0
-            )
+            "banking_vintage_years": banking_vintage,
+            "primary_bank": primary_bank,
+            "account_type": account_type,
+        }
 
-        with c5:
-            conduct = st.selectbox(
-                "Conduct",
-                ["Select", "Satisfactory", "Average", "Poor"]
-            )
+        st.success("Banking Conduct details saved successfully ✅")
 
-    st.button("➕ Add Bank Account")
-
-    st.divider()
-
-    # -------------------------------
-    # BANKING CONDUCT RISK ASSESSMENT
-    # -------------------------------
-    st.markdown("#### Banking Conduct Risk Assessment")
-
-    r1, r2, r3 = st.columns(3)
-
-    with r1:
-        st.metric("CIBIL Score", cibil if cibil else "N/A")
-
-    with r2:
-        st.metric("Max Entity DPD", f"{max_dpd_entity} days")
-
-    with r3:
-        st.metric("Bounced Cheques", bounced if bounced else 0)
-
-    st.divider()
-
-    # -------------------------------
-    # NAVIGATION
-    # -------------------------------
-    nav1, nav2 = st.columns([1, 1])
-
-    with nav1:
-        st.button("← Back to Financial Data")
-
-    with nav2:
-        st.button("Continue to Loan Request →")
+        # navigation handled by app.py
+        st.session_state.page = "Loan Request"

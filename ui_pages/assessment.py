@@ -1,7 +1,19 @@
 import streamlit as st
 
 def render_assessment():
+
     st.markdown("### 🧠 Qualitative Assessment")
+
+    # --------------------------------------------------
+    # INIT CENTRAL SESSION STORE
+    # --------------------------------------------------
+    if "data" not in st.session_state:
+        st.session_state.data = {}
+
+    if "assessment" not in st.session_state.data:
+        st.session_state.data["assessment"] = {}
+
+    a = st.session_state.data["assessment"]
 
     # ==================================================
     # PROMOTER & MANAGEMENT
@@ -13,32 +25,36 @@ def render_assessment():
     with left:
         promoter_bg = st.text_area(
             "Promoter Background Check *",
-            placeholder="KYC details, previous defaulter status, criminal background, etc."
+            value=a.get("promoter_background", "")
         )
 
         promoter_exp = st.text_area(
             "Promoter Experience & Track Record",
-            placeholder="Years of experience, previous ventures, industry expertise"
+            value=a.get("promoter_experience", "")
         )
 
         mgmt_rating = st.selectbox(
             "Management Track Record Rating *",
-            ["Select rating", "Strong", "Average", "Weak"]
+            ["Select rating", "Strong", "Average", "Weak"],
+            index=["Select rating", "Strong", "Average", "Weak"]
+            .index(a.get("management_rating", "Select rating"))
         )
 
         mgmt_notes = st.text_area(
             "Management Track Record Notes",
-            placeholder="Financial prudence, decision-making capability, governance practices"
+            value=a.get("management_notes", "")
         )
 
         group_exposure = st.text_area(
             "Group Exposure Risk Assessment",
-            placeholder="If part of conglomerate, assess inter-group transactions and risks"
+            value=a.get("group_exposure_notes", "")
         )
 
         group_risk = st.radio(
             "Group Risk Level",
             ["Low", "Medium", "High", "N/A"],
+            index=["Low", "Medium", "High", "N/A"]
+            .index(a.get("group_risk_level", "N/A")),
             horizontal=True
         )
 
@@ -48,32 +64,34 @@ def render_assessment():
     with right:
         industry_outlook = st.selectbox(
             "Industry Risk Outlook *",
-            ["Select risk category", "Low", "Moderate", "High"]
+            ["Select risk category", "Low", "Moderate", "High"],
+            index=["Select risk category", "Low", "Moderate", "High"]
+            .index(a.get("industry_risk", "Select risk category"))
         )
 
         industry_notes = st.text_area(
             "Industry Outlook Notes",
-            placeholder="Use RBI/ICRA categories, growth prospects, regulatory changes"
+            value=a.get("industry_notes", "")
         )
 
         market_position = st.text_area(
             "Market Position & Competitive Advantage",
-            placeholder="Market share, competitive moats, unique selling propositions"
+            value=a.get("market_position", "")
         )
 
         customer_base = st.text_area(
             "Customer Base Analysis",
-            placeholder="Customer concentration, quality, retention rates"
+            value=a.get("customer_base", "")
         )
 
         supplier_risk = st.text_area(
             "Supplier Relations & Dependencies",
-            placeholder="Key supplier dependencies, payment terms, supply chain risks"
+            value=a.get("supplier_risk", "")
         )
 
         operational_risk = st.text_area(
             "Operational Risk Assessment",
-            placeholder="Technology risks, process efficiency, key person dependencies"
+            value=a.get("operational_risk", "")
         )
 
     st.divider()
@@ -88,75 +106,48 @@ def render_assessment():
     with left2:
         esg_level = st.selectbox(
             "ESG Compliance Risk Level",
-            ["Select ESG risk level", "Low", "Medium", "High"]
+            ["Select ESG risk level", "Low", "Medium", "High"],
+            index=["Select ESG risk level", "Low", "Medium", "High"]
+            .index(a.get("esg_risk_level", "Select ESG risk level"))
         )
 
         esg_notes = st.text_area(
             "ESG Compliance Notes",
-            placeholder="Environmental compliance, social responsibility, governance practices"
+            value=a.get("esg_notes", "")
         )
 
         regulatory_status = st.text_area(
             "Regulatory Compliance Status",
-            placeholder="Compliance with industry regulations, pending litigations, regulatory notices"
+            value=a.get("regulatory_status", "")
         )
 
     # ==================================================
-    # SUPPORTING DOCUMENTS
+    # SAVE ONLY
     # ==================================================
-    with right2:
-        st.markdown("#### Supporting Documents")
-
-        st.file_uploader(
-            "Promoter KYC Documents",
-            type=["pdf", "jpg", "png"],
-            accept_multiple_files=True
-        )
-
-        st.file_uploader(
-            "Management Background Reports",
-            type=["pdf", "doc", "docx"],
-            accept_multiple_files=True
-        )
-
-        st.file_uploader(
-            "Industry Analysis Reports",
-            type=["pdf", "doc", "docx"],
-            accept_multiple_files=True
-        )
-
     st.divider()
 
-    # ==================================================
-    # QUALITATIVE ASSESSMENT SUMMARY
-    # ==================================================
-    st.markdown("#### Qualitative Assessment Summary")
+    if st.button("Save & Continue ➡️", width="stretch"):
 
-    s1, s2, s3, s4 = st.columns(4)
+        st.session_state.data["assessment"] = {
+            "promoter_background": promoter_bg,
+            "promoter_experience": promoter_exp,
+            "management_rating": mgmt_rating,
+            "management_notes": mgmt_notes,
 
-    with s1:
-        st.metric("Management Rating", mgmt_rating if mgmt_rating != "Select rating" else "N/A")
+            "group_exposure_notes": group_exposure,
+            "group_risk_level": group_risk,
 
-    with s2:
-        st.metric("Industry Risk", industry_outlook if industry_outlook != "Select risk category" else "N/A")
+            "industry_risk": industry_outlook,
+            "industry_notes": industry_notes,
+            "market_position": market_position,
+            "customer_base": customer_base,
+            "supplier_risk": supplier_risk,
+            "operational_risk": operational_risk,
 
-    with s3:
-        st.metric("Group Risk", group_risk)
+            "esg_risk_level": esg_level,
+            "esg_notes": esg_notes,
+            "regulatory_status": regulatory_status,
+        }
 
-    with s4:
-        st.metric("ESG Risk", esg_level if esg_level != "Select ESG risk level" else "N/A")
-
-    st.divider()
-
-    # ==================================================
-    # NAVIGATION
-    # ==================================================
-    nav1, nav2 = st.columns([1, 1])
-
-    with nav1:
-        if st.button("← Back to Loan Request"):
-            st.session_state.page = "Loan Request"
-
-    with nav2:
-        if st.button("Continue to Documents →"):
-            st.session_state.page = "Documents"
+        st.success("Qualitative Assessment saved successfully ✅")
+        st.session_state.page = "Documents"

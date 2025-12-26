@@ -5,6 +5,10 @@ import streamlit as st
 # -------------------------------------------------
 
 DOCUMENT_SECTIONS = {
+    " KYC Documents": [
+        ("PAN", True),
+        ("Aadhar", True),
+    ],
     "Financial Documents": [
         ("Audited Financial Statements (Last 3 Years)", True),
         ("Provisional Financial Statements (Current Year)", False),
@@ -32,10 +36,7 @@ DOCUMENT_SECTIONS = {
         ("Partnership Deed (if applicable)", False),
         ("Directors KYC Documents", True),
     ],
-    " KYC Documents": [
-        ("PAN", True),
-        ("Aadhar", True),
-    ],
+ 
     "Operational Documents": [
         ("Stock & Inventory Statements", False),
         ("Debtors & Creditors Aging", False),

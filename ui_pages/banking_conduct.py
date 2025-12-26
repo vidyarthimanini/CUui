@@ -10,8 +10,13 @@ def render_banking_conduct():
     col1, col2 = st.columns(2)
 
     with col1:
-        cibil = st.number_input("CIBIL Score *", min_value=300, max_value=900, step=1)
-      
+        cibil = st.number_input(
+            "CIBIL Score *",
+            min_value=300,
+            max_value=900,
+            step=1
+        )
+
         avg_balance = st.number_input(
             "Average Bank Balance (Last 6 Months) *",
             min_value=0.0,
@@ -21,58 +26,70 @@ def render_banking_conduct():
         )
 
     with col2:
-        crif = st.number_input("CRIF Score", min_value=300, max_value=900, step=1)
-        bounced = st.number_input("Bounced Cheques (Count)", min_value=0, step=1)
-        overdrafts = st.number_input("Overdrafts (Count)", min_value=0, step=1)
+        crif = st.number_input(
+            "CRIF Score",
+            min_value=300,
+            max_value=900,
+            step=1
+        )
+        bounced = st.number_input(
+            "Bounced Cheques (Count)",
+            min_value=0,
+            step=1
+        )
+        overdrafts = st.number_input(
+            "Overdrafts (Count)",
+            min_value=0,
+            step=1
+        )
 
     st.divider()
 
     # -------------------------------
-    # 🆕 REPAYMENT BEHAVIOUR (DPD)
+    # REPAYMENT BEHAVIOUR (DPD)
     # -------------------------------
     st.markdown("#### Repayment Behaviour")
 
-d1, d2 = st.columns(2)
+    d1, d2 = st.columns(2)
 
-with d1:
-    dpd30_6m = st.number_input(
-        "30+ DPD Instances (Last 6 Months)",
-        min_value=0,
-        step=1,
-        help="Number of instalments delayed by 30+ days in the last 6 months"
-    )
+    with d1:
+        dpd30_6m = st.number_input(
+            "30+ DPD Instances (Last 6 Months)",
+            min_value=0,
+            step=1,
+            help="Number of instalments delayed by 30+ days in the last 6 months"
+        )
 
-    max_dpd_current = st.number_input(
-        "Max DPD – Current Loan (Last 6 Months)",
-        min_value=0,
-        step=1,
-        help="Highest number of days past due on the current loan in last 6 months"
-    )
+        max_dpd_current = st.number_input(
+            "Max DPD – Current Loan (Last 6 Months)",
+            min_value=0,
+            step=1,
+            help="Highest number of days past due on the current loan in last 6 months"
+        )
 
-    months_since_60dpd = st.number_input(
-        "Months Since Last 60+ DPD",
-        min_value=0,
-        step=1,
-        help="Number of months since the most recent 60+ DPD event"
-    )
+        months_since_60dpd = st.number_input(
+            "Months Since Last 60+ DPD",
+            min_value=0,
+            step=1,
+            help="Months since the most recent 60+ DPD event"
+        )
 
-with d2:
-    dpd60_12m = st.number_input(
-        "60+ DPD Instances (Last 12 Months)",
-        min_value=0,
-        step=1,
-        help="Number of instalments delayed by 60+ days in the last 12 months"
-    )
+    with d2:
+        dpd60_12m = st.number_input(
+            "60+ DPD Instances (Last 12 Months)",
+            min_value=0,
+            step=1,
+            help="Number of instalments delayed by 60+ days in the last 12 months"
+        )
 
-    max_dpd_entity = st.number_input(
-        "Max DPD – All Loans (Entity Level)",
-        min_value=0,
-        step=1,
-        help="Highest days past due across all lenders (entity-level)"
-    )
+        max_dpd_entity = st.number_input(
+            "Max DPD – All Loans (Entity Level)",
+            min_value=0,
+            step=1,
+            help="Highest days past due across all lenders (entity-level)"
+        )
 
-st.divider()
-
+    st.divider()
 
     # -------------------------------
     # COMPLIANCE & EXPOSURE
@@ -85,10 +102,6 @@ st.divider()
             "GST Filing Compliance *",
             ["Regular", "Irregular"],
             horizontal=True
-        )
-        sma_class = st.selectbox(
-            "SMA Classification *",
-            ["Select SMA classification", "Standard", "SMA-0", "SMA-1", "SMA-2", "NPA"]
         )
 
     with col4:
@@ -129,10 +142,18 @@ st.divider()
             )
 
         with c3:
-            vintage_years = st.number_input("Vintage (Years)", min_value=0, step=1)
+            vintage_years = st.number_input(
+                "Vintage (Years)",
+                min_value=0,
+                step=1
+            )
 
         with c4:
-            avg_bal = st.number_input("Avg Balance (₹L)", min_value=0.0, step=1.0)
+            avg_bal = st.number_input(
+                "Avg Balance (₹L)",
+                min_value=0.0,
+                step=1.0
+            )
 
         with c5:
             conduct = st.selectbox(
@@ -152,10 +173,10 @@ st.divider()
     r1, r2, r3 = st.columns(3)
 
     with r1:
-        st.metric("Credit Score", cibil if cibil else "N/A")
+        st.metric("CIBIL Score", cibil if cibil else "N/A")
 
     with r2:
-        st.metric("SMA Status", dpd_current)
+        st.metric("Max Entity DPD", f"{max_dpd_entity} days")
 
     with r3:
         st.metric("Bounced Cheques", bounced if bounced else 0)

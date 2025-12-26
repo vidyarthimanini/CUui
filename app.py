@@ -4,6 +4,7 @@ from ui_pages.documents import render_documents
 from ui_pages.financial_data import render_financial_data
 from ui_pages.banking_conduct import render_banking_conduct
 from ui_pages.loan_request import render_loan_request
+from ui_pages.assessment import render_assessment
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
@@ -62,8 +63,8 @@ elif page == "Loan Request":
     render_loan_request()
     
 elif page == "Assessment":
-    st.info("Assessment page (to be implemented)")
-
+    render_assessment()
+    
 elif page == "Documents":
     render_documents()
 

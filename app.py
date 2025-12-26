@@ -5,6 +5,7 @@ from ui_pages.financial_data import render_financial_data
 from ui_pages.banking_conduct import render_banking_conduct
 from ui_pages.loan_request import render_loan_request
 from ui_pages.assessment import render_assessment
+from ui_pages.ai_scorecard import render_ai_scorecard
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
@@ -69,7 +70,6 @@ elif page == "Documents":
     render_documents()
 
 elif page == "AI Scorecard":
-    st.info("AI Scorecard page (to be implemented)")
-
+    render_ai_scorecard()
 elif page == "Tools":
     st.info("Tools page (to be implemented)")

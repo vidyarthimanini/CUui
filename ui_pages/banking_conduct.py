@@ -11,10 +11,7 @@ def render_banking_conduct():
 
     with col1:
         cibil = st.number_input("CIBIL Score *", min_value=300, max_value=900, step=1)
-        dpd = st.text_area(
-            "DPD Flags & History",
-            placeholder="Enter any Days Past Due flags, closed loan history, etc."
-        )
+      
         avg_balance = st.number_input(
             "Average Bank Balance (Last 6 Months) *",
             min_value=0.0,
@@ -33,52 +30,49 @@ def render_banking_conduct():
     # -------------------------------
     # 🆕 REPAYMENT BEHAVIOUR (DPD)
     # -------------------------------
-    st.markdown("#### 🔁 Repayment Behaviour (DPD)")
+    st.markdown("#### Repayment Behaviour")
 
-    d1, d2 = st.columns(2)
+d1, d2 = st.columns(2)
 
-    with d1:
-        dpd_current = st.selectbox(
-            "Current Loan DPD Status *",
-            ["Standard", "SMA-0", "SMA-1 (31–60)", "SMA-2 (61–90)", "NPA"]
-        )
+with d1:
+    dpd30_6m = st.number_input(
+        "30+ DPD Instances (Last 6 Months)",
+        min_value=0,
+        step=1,
+        help="Number of instalments delayed by 30+ days in the last 6 months"
+    )
 
-        dpd30_6m = st.number_input(
-            "30+ DPD Count (Last 6 Months)",
-            min_value=0,
-            step=1
-        )
+    max_dpd_current = st.number_input(
+        "Max DPD – Current Loan (Last 6 Months)",
+        min_value=0,
+        step=1,
+        help="Highest number of days past due on the current loan in last 6 months"
+    )
 
-        max_dpd_current = st.selectbox(
-            "Max Delinquency – Current Loan (Last 6 Months)",
-            ["0", "1–30", "31–60", "61–90", "90+"]
-        )
+    months_since_60dpd = st.number_input(
+        "Months Since Last 60+ DPD",
+        min_value=0,
+        step=1,
+        help="Number of months since the most recent 60+ DPD event"
+    )
 
-        months_since_60dpd = st.number_input(
-            "Months Since Last 60+ DPD",
-            min_value=0,
-            step=1
-        )
+with d2:
+    dpd60_12m = st.number_input(
+        "60+ DPD Instances (Last 12 Months)",
+        min_value=0,
+        step=1,
+        help="Number of instalments delayed by 60+ days in the last 12 months"
+    )
 
-    with d2:
-        dpd60_12m = st.number_input(
-            "60+ DPD Count (Last 12 Months)",
-            min_value=0,
-            step=1
-        )
+    max_dpd_entity = st.number_input(
+        "Max DPD – All Loans (Entity Level)",
+        min_value=0,
+        step=1,
+        help="Highest days past due across all lenders (entity-level)"
+    )
 
-        max_dpd_entity = st.selectbox(
-            "Max Delinquency – All Loans (Entity Level)",
-            ["0", "1–30", "31–60", "61–90", "90+"]
-        )
+st.divider()
 
-        nach_bounce = st.number_input(
-            "NACH / ECS Bounce Count",
-            min_value=0,
-            step=1
-        )
-
-    st.divider()
 
     # -------------------------------
     # COMPLIANCE & EXPOSURE

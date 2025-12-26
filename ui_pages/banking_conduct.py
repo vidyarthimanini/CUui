@@ -1,7 +1,7 @@
 import streamlit as st
 
 def render_banking_conduct():
-    st.markdown("### 🏦 Banking & Repayment Conduct")
+    st.markdown("### 🏦 Banking Conduct")
 
     # -------------------------------
     # CREDIT BUREAU INFORMATION
@@ -27,6 +27,56 @@ def render_banking_conduct():
         crif = st.number_input("CRIF Score", min_value=300, max_value=900, step=1)
         bounced = st.number_input("Bounced Cheques (Count)", min_value=0, step=1)
         overdrafts = st.number_input("Overdrafts (Count)", min_value=0, step=1)
+
+    st.divider()
+
+    # -------------------------------
+    # 🆕 REPAYMENT BEHAVIOUR (DPD)
+    # -------------------------------
+    st.markdown("#### 🔁 Repayment Behaviour (DPD)")
+
+    d1, d2 = st.columns(2)
+
+    with d1:
+        dpd_current = st.selectbox(
+            "Current Loan DPD Status *",
+            ["Standard", "SMA-0", "SMA-1 (31–60)", "SMA-2 (61–90)", "NPA"]
+        )
+
+        dpd30_6m = st.number_input(
+            "30+ DPD Count (Last 6 Months)",
+            min_value=0,
+            step=1
+        )
+
+        max_dpd_current = st.selectbox(
+            "Max Delinquency – Current Loan (Last 6 Months)",
+            ["0", "1–30", "31–60", "61–90", "90+"]
+        )
+
+        months_since_60dpd = st.number_input(
+            "Months Since Last 60+ DPD",
+            min_value=0,
+            step=1
+        )
+
+    with d2:
+        dpd60_12m = st.number_input(
+            "60+ DPD Count (Last 12 Months)",
+            min_value=0,
+            step=1
+        )
+
+        max_dpd_entity = st.selectbox(
+            "Max Delinquency – All Loans (Entity Level)",
+            ["0", "1–30", "31–60", "61–90", "90+"]
+        )
+
+        nach_bounce = st.number_input(
+            "NACH / ECS Bounce Count",
+            min_value=0,
+            step=1
+        )
 
     st.divider()
 
@@ -108,10 +158,10 @@ def render_banking_conduct():
     r1, r2, r3 = st.columns(3)
 
     with r1:
-        st.metric("Credit Score", "N/A")
+        st.metric("Credit Score", cibil if cibil else "N/A")
 
     with r2:
-        st.metric("SMA Status", "N/A")
+        st.metric("SMA Status", dpd_current)
 
     with r3:
         st.metric("Bounced Cheques", bounced if bounced else 0)

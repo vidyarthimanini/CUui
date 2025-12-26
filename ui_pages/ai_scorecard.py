@@ -154,6 +154,37 @@ def render_ai_scorecard(calculating=False):
             st.caption(f"{val:+.1f}")
 
     st.divider()
+    # -----------------------------------
+    # 📋 DYNAMIC RISK SUMMARY
+    # -----------------------------------
+    st.markdown("### 📋 Risk Assessment Summary")
+
+    positive_factors = []
+    risk_concerns = []
+
+    for name, val in drivers:
+        if val <= -1.0:
+            risk_concerns.append(f"❌ {name}: {val:+.1f} points")
+        elif val > -0.5:
+            positive_factors.append(f"✅ {name}")
+
+    r1, r2 = st.columns(2)
+
+    with r1:
+        st.markdown("**Positive Factors**")
+        if positive_factors:
+            for p in positive_factors:
+                st.write(p)
+        else:
+            st.write("• None identified")
+
+    with r2:
+        st.markdown("**Risk Concerns**")
+        if risk_concerns:
+            for r in risk_concerns:
+                st.write(r)
+        else:
+            st.write("• No material concerns")
 
     # -----------------------------------
     # MODEL METRICS

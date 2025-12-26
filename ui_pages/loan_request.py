@@ -1,7 +1,19 @@
 import streamlit as st
 
 def render_loan_request():
+
     st.markdown("### 💼 Loan Request Details")
+
+    # --------------------------------------------------
+    # INIT CENTRAL SESSION STORE
+    # --------------------------------------------------
+    if "data" not in st.session_state:
+        st.session_state.data = {}
+
+    if "loan_request" not in st.session_state.data:
+        st.session_state.data["loan_request"] = {}
+
+    lr = st.session_state.data["loan_request"]
 
     # -------------------------------
     # LOAN REQUIREMENTS
@@ -12,41 +24,44 @@ def render_loan_request():
 
     with left:
         loan_amount = st.number_input(
-            "Loan Amount *",
+            "Loan Amount * (₹ Cr)",
             min_value=0.0,
-            step=0.1,
-            format="%.2f",
-            help="Amount in ₹ Crore"
+            value=float(lr.get("loan_amount_cr", 0.0)),
+            step=0.1
         )
 
         loan_type = st.selectbox(
             "Loan Type *",
-            ["Select loan type", "Term Loan", "Working Capital", "CC", "OD"]
+            ["Select loan type", "Term Loan", "Working Capital", "CC", "OD"],
+            index=["Select loan type", "Term Loan", "Working Capital", "CC", "OD"]
+            .index(lr.get("loan_type", "Select loan type"))
         )
 
         t1, t2 = st.columns(2)
 
         with t1:
             tenure = st.number_input(
-                "Tenure * (Months)",
+                "Tenure (Months)",
                 min_value=1,
-                step=1
+                value=int(lr.get("tenure_months", 1))
             )
 
         with t2:
             repayment_mode = st.selectbox(
                 "Repayment Mode",
-                ["Select mode", "EMI", "Structured", "Bullet"]
+                ["Select mode", "EMI", "Structured", "Bullet"],
+                index=["Select mode", "EMI", "Structured", "Bullet"]
+                .index(lr.get("repayment_mode", "Select mode"))
             )
 
         purpose = st.text_area(
             "Purpose of Loan *",
-            placeholder="Describe the purpose of loan (working capital, CAPEX, acquisition, etc.)"
+            value=lr.get("loan_purpose", "")
         )
 
         utilization = st.text_area(
             "Proposed Utilization Plan",
-            placeholder="How will the loan amount be utilized?"
+            value=lr.get("utilization_plan", "")
         )
 
     # -------------------------------
@@ -66,7 +81,8 @@ def render_loan_request():
                 "Fixed Deposit",
                 "Insurance Policy",
                 "Unsecured"
-            ]
+            ],
+            default=lr.get("securities", [])
         )
 
         c1, c2 = st.columns(2)
@@ -75,6 +91,7 @@ def render_loan_request():
             collateral_value = st.number_input(
                 "Collateral Value (₹ Cr)",
                 min_value=0.0,
+                value=float(lr.get("collateral_value_cr", 0.0)),
                 step=0.1
             )
 
@@ -83,103 +100,50 @@ def render_loan_request():
                 "LTV Ratio (%)",
                 min_value=0.0,
                 max_value=100.0,
-                step=0.1,
-                help="Auto-calculated or manual override"
+                value=float(lr.get("ltv_ratio_pct", 0.0)),
+                step=0.1
             )
 
         guarantors = st.text_area(
             "Guarantors / Co-applicants",
-            placeholder="List promoters, directors, or corporate guarantors"
+            value=lr.get("guarantors", "")
         )
 
         interest_type = st.radio(
             "Interest Type Preference",
             ["Fixed", "Floating", "Hybrid"],
+            index=["Fixed", "Floating", "Hybrid"]
+            .index(lr.get("interest_type", "Fixed")),
             horizontal=True
         )
 
         business_plan = st.text_area(
             "Business Plan & Cash Flow Projections",
-            placeholder="Provide details about business growth plans and projected cash flows"
+            value=lr.get("business_plan", "")
         )
 
     st.divider()
 
     # -------------------------------
-    # EXISTING LOAN DETAILS
+    # SAVE ONLY
     # -------------------------------
-    st.markdown("#### Existing Loan Details")
+    if st.button("Save & Continue ➡️", width="stretch"):
 
-    with st.container():
-        e1, e2, e3, e4, e5, e6 = st.columns([2, 1.5, 1, 1, 1, 1.5])
+        st.session_state.data["loan_request"] = {
+            "loan_amount_cr": loan_amount,
+            "loan_type": loan_type,
+            "tenure_months": tenure,
+            "repayment_mode": repayment_mode,
+            "loan_purpose": purpose,
+            "utilization_plan": utilization,
 
-        with e1:
-            lender = st.text_input("Bank / NBFC")
+            "securities": securities,
+            "collateral_value_cr": collateral_value,
+            "ltv_ratio_pct": ltv_ratio,
+            "guarantors": guarantors,
+            "interest_type": interest_type,
+            "business_plan": business_plan,
+        }
 
-        with e2:
-            ex_loan_type = st.selectbox(
-                "Loan Type",
-                ["TL", "WC", "CC", "OD"]
-            )
-
-        with e3:
-            sanctioned = st.number_input(
-                "Sanctioned (₹ Cr)",
-                min_value=0.0,
-                step=0.1
-            )
-
-        with e4:
-            outstanding = st.number_input(
-                "Outstanding (₹ Cr)",
-                min_value=0.0,
-                step=0.1
-            )
-
-        with e5:
-            emi = st.number_input(
-                "EMI (₹ L)",
-                min_value=0.0,
-                step=0.1
-            )
-
-        with e6:
-            ex_security = st.text_input("Security")
-
-    st.button("➕ Add Existing Loan")
-
-    st.divider()
-
-    # -------------------------------
-    # LOAN REQUEST SUMMARY
-    # -------------------------------
-    st.markdown("#### Loan Request Summary")
-
-    s1, s2, s3, s4 = st.columns(4)
-
-    with s1:
-        st.metric("Requested Amount", f"₹ {loan_amount:.2f} Cr")
-
-    with s2:
-        st.metric("Total Exposure", "₹ 0.00 Cr")
-
-    with s3:
-        st.metric("LTV Ratio", f"{ltv_ratio:.1f} %")
-
-    with s4:
-        st.metric("Tenure", f"{tenure} M")
-
-    st.divider()
-
-    # -------------------------------
-    # NAVIGATION
-    # -------------------------------
-    nav1, nav2 = st.columns([1, 1])
-
-    with nav1:
-        if st.button("← Back to Banking Conduct"):
-            st.session_state.page = "Banking Conduct"
-
-    with nav2:
-        if st.button("Continue to Assessment →"):
-            st.session_state.page = "Assessment"
+        st.success("Loan Request details saved successfully ✅")
+        st.session_state.page = "Assessment"

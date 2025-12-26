@@ -1,13 +1,14 @@
+
 import re
 import streamlit as st
 from datetime import date
 
+from validation.borrower_profile_rules import validate_borrower_profile
 from validation.pincode_validator import validate_and_resolve_pincode
 from validation.cin_validator import validate_cin
 from validation.pan_validator import validate_pan
 from validation.gstin_validator import validate_gstin
 from validation.aadhaar_validator import validate_aadhaar
-
 
 # ------------------ Helpers ------------------
 def handle_pincode_change():
@@ -37,16 +38,7 @@ def handle_phone_change():
 # ------------------ Page ------------------
 def render_borrower_profile():
 
-    st.subheader("Borrower Profile")
-
-    # 🔑 Central session store
-    if "data" not in st.session_state:
-        st.session_state.data = {}
-
-    if "borrower_profile" not in st.session_state.data:
-        st.session_state.data["borrower_profile"] = {}
-
-    bp = st.session_state.data["borrower_profile"]
+    st.subheader(" Borrower Profile")
 
     for k in ["city", "state", "pincode", "phone"]:
         if k not in st.session_state:
@@ -56,10 +48,7 @@ def render_borrower_profile():
     c1, c2 = st.columns(2)
 
     with c1:
-        company_name = st.text_input(
-            "Company Name *",
-            value=bp.get("company_name", "")
-        )
+        company_name = st.text_input("Company Name *")
 
         entity_type = st.selectbox(
             "Type of Entity *",
@@ -93,40 +82,33 @@ def render_borrower_profile():
         )
 
     with c2:
-        cin = st.text_input(
-            "CIN Number *",
-            value=bp.get("cin", "")
-        )
-        industry = st.text_input(
-            "Industry / Sub-sector",
-            value=bp.get("industry", "")
-        )
+        cin = st.text_input("CIN Number *")
+        industry = st.text_input("Industry / Sub-sector")
 
         if cin:
-            ok, msg = validate_cin(cin)
-            if not ok:
-                st.warning(msg)
+            cin_ok, cin_msg = validate_cin(cin)
+            if not cin_ok:
+                st.error(cin_msg)
+            else:
+                st.success("✔ Valid CIN")
 
     registration_date = st.date_input(
         "Registration Date *",
-        value=bp.get("registration_date", date.today()),
         max_value=date.today()
     )
 
     # ---------------- Address ----------------
-    address = st.text_area(
-        "Registered Address *",
-        value=bp.get("address", "")
-    )
+    address = st.text_area("Registered Address *")
 
     c3, c4, c5 = st.columns(3)
-    c3.text_input("City *", key="city", disabled=True)
-    c4.text_input("State *", key="state", disabled=True)
+    c3.text_input("City *", key="city")
+    c4.text_input("State *", key="state")
     c5.text_input(
         "Pincode *",
         key="pincode",
         max_chars=6,
-        on_change=handle_pincode_change
+        on_change=handle_pincode_change,
+        help="6-digit India Post PIN"
     )
 
     # ---------------- Legal Identifiers ----------------
@@ -134,77 +116,87 @@ def render_borrower_profile():
 
     c9, c10, c11 = st.columns(3)
 
-    pan = c9.text_input(
-        "PAN *",
-        max_chars=10,
-        value=bp.get("pan", "")
-    )
+    # PAN
+    pan = c9.text_input("PAN *", max_chars=10)
     if pan:
-        ok, msg = validate_pan(pan)
-        if not ok:
-            c9.warning(msg)
+        pan_ok, pan_msg = validate_pan(pan)
+        if not pan_ok:
+            c9.error(pan_msg)
+        else:
+            c9.success("✔ Valid PAN")
 
-    gstin = c10.text_input(
-        "GSTIN",
-        max_chars=15,
-        value=bp.get("gstin", "")
-    )
+    # GSTIN
+    gstin = c10.text_input("GSTIN", max_chars=15)
     if gstin:
-        ok, msg = validate_gstin(gstin, pan)
-        if not ok:
-            c10.warning(msg)
+        gstin_ok, gstin_msg = validate_gstin(gstin, pan)
+        if not gstin_ok:
+            c10.error(gstin_msg)
+        else:
+            c10.success("✔ Valid GSTIN")
 
+    # Aadhaar
     aadhaar = c11.text_input(
         "Aadhaar Number *",
         max_chars=12,
-        value=bp.get("aadhaar", "")
+        help="12-digit Aadhaar number (numeric only)"
     )
     if aadhaar:
-        ok, msg = validate_aadhaar(aadhaar)
-        if not ok:
-            c11.warning(msg)
+        aadhaar_ok, aadhaar_msg = validate_aadhaar(aadhaar)
+        if not aadhaar_ok:
+            c11.error(aadhaar_msg)
+        else:
+            c11.success(f"✔ Aadhaar verified (XXXX-XXXX-{aadhaar[-4:]})")
 
     # ---------------- Contact ----------------
     st.markdown("### Contact")
     c6, c7, c8 = st.columns(3)
 
-    contact_person = c6.text_input(
-        "Contact Person *",
-        value=bp.get("contact_person", "")
-    )
+    contact_person = c6.text_input("Contact Person *")
+    email = c7.text_input("Email *")
 
-    email = c7.text_input(
-        "Email *",
-        value=bp.get("email", "")
-    )
+    if email:
+        email_regex = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+        if not re.fullmatch(email_regex, email.strip()):
+            c7.error("Invalid email format")
 
     c8.text_input(
         "Phone Number *",
         key="phone",
         max_chars=10,
-        on_change=handle_phone_change
+        on_change=handle_phone_change,
+        help="10-digit mobile number"
     )
 
-    # ---------------- SAVE ONLY ----------------
-    if st.button("Save & Continue ➡️"):
+    # ---------------- Submit ----------------
+    if st.button("Continue ➡️"):
 
-        st.session_state.data["borrower_profile"] = {
+        form_data = {
             "company_name": company_name,
             "entity_type": entity_type,
             "sector": sector,
             "cin": cin,
-            "industry": industry,
             "pan": pan,
             "gstin": gstin,
             "aadhaar": aadhaar,
             "registration_date": registration_date,
             "address": address,
-            "city": st.session_state.get("city"),
-            "state": st.session_state.get("state"),
-            "pincode": st.session_state.get("pincode"),
+            "city": st.session_state.city,
+            "state": st.session_state.state,
+            "pincode": st.session_state.pincode,
             "contact_person": contact_person,
             "email": email,
-            "phone": st.session_state.get("phone"),
+            "phone": st.session_state.phone,
         }
 
-        st.success("Borrower Profile saved successfully ✅")
+        errors = validate_borrower_profile(form_data)
+
+        if errors:
+            st.error("Please fix the following:")
+            for e in errors:
+                st.write("•", e)
+        else:
+            st.success("Borrower Profile validated successfully ✅")
+
+
+
+

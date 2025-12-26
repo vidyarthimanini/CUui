@@ -195,4 +195,9 @@ def render_borrower_profile():
                 st.write("•", e)
         else:
             st.success("Borrower Profile validated successfully ✅")
+        return {
+            "is_valid": len(errors) == 0,
+            "errors": errors,
+            "normalized_data": data
+        }
 

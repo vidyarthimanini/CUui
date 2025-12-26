@@ -1,11 +1,11 @@
 import streamlit as st
-from cuui.ui_pages.borrower_profile import render_borrower_profile
-from cuui.ui_pages.documents import render_documents
-from cuui.ui_pages.financial_data import render_financial_data
-from cuui.ui_pages.banking_conduct import render_banking_conduct
-from cuui.ui_pages.loan_request import render_loan_request
-from cuui.ui_pages.assessment import render_assessment
-from cuui.ui_pages.ai_scorecard import render_ai_scorecard
+from ui_pages.borrower_profile import render_borrower_profile
+from ui_pages.documents import render_documents
+from ui_pages.financial_data import render_financial_data
+from ui_pages.banking_conduct import render_banking_conduct
+from ui_pages.loan_request import render_loan_request
+from ui_pages.assessment import render_assessment
+from ui_pages.ai_scorecard import render_ai_scorecard
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------

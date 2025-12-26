@@ -187,11 +187,13 @@ def render_borrower_profile():
             "phone": st.session_state.phone,
         }
 
-        errors = validate_borrower_profile(form_data)
+    result = validate_borrower_profile(form_data)
 
-        if errors:
-            st.error("Please fix the following:")
-            for e in errors:
-                st.write("•", e)
-        else:
-            st.success("Borrower Profile validated successfully ✅")
+if not result["is_valid"]:
+    st.error("Please fix the following:")
+    for e in result["errors"]:
+        st.write("•", e)
+else:
+    st.session_state.borrower_profile = result["normalized_data"]
+    st.success("Borrower Profile validated successfully ✅")
+

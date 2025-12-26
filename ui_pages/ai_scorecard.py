@@ -1,5 +1,20 @@
 import streamlit as st
 
+def score_to_impact(value, good, bad, max_impact):
+    if value is None:
+        return 0.0
+    try:
+        value = float(value)
+    except:
+        return 0.0
+
+    if value >= good:
+        return 0.0
+    if value <= bad:
+        return -max_impact
+    return -max_impact * (good - value) / (good - bad)
+
+
 def render_ai_scorecard(calculating=False):
     st.markdown("## 🤖 AI Model Feedback & Scorecard")
 
@@ -56,9 +71,13 @@ def render_ai_scorecard(calculating=False):
         ]
 
         for b, label, rng in bands:
-            st.markdown(f"**{b}** — {label} <span style='float:right;color:gray'>{rng}</span>", unsafe_allow_html=True)
+            st.markdown(
+                f"**{b}** — {label} <span style='float:right;color:gray'>{rng}</span>",
+                unsafe_allow_html=True
+            )
 
-        st.markdown("<small><a href='#'>View All Risk Bands (SB9–SB16)</a></small>", unsafe_allow_html=True)
+        st.markdown("<small><a href='#'>View All Risk Bands (SB9–SB16)</a></small>",
+                    unsafe_allow_html=True)
 
     st.divider()
 
@@ -79,25 +98,60 @@ def render_ai_scorecard(calculating=False):
     st.divider()
 
     # -----------------------------------
-    # SHAP DRIVERS
+    # 🔍 DYNAMIC SHAP DRIVERS
     # -----------------------------------
     st.markdown("### 🔍 Key Risk Drivers (SHAP Analysis)")
 
+    financials = st.session_state.get("financials", {})
+    banking = st.session_state.get("banking_conduct", {})
+    assessment = st.session_state.get("assessment", {})
+
+    dscr = financials.get("dscr")
+    current_ratio = financials.get("current_ratio")
+    debt_equity = financials.get("debt_equity")
+    ebitda_margin = financials.get("ebitda_margin")
+    revenue_growth = financials.get("revenue_growth_yoy")
+
+    dscr_impact = score_to_impact(dscr, good=1.5, bad=0.9, max_impact=8)
+    cr_impact = score_to_impact(current_ratio, good=1.5, bad=1.0, max_impact=5)
+
+    de_impact = score_to_impact(
+        (1 / debt_equity) if debt_equity and debt_equity > 0 else None,
+        good=0.6, bad=0.25, max_impact=4
+    )
+
+    ebitda_impact = score_to_impact(ebitda_margin, good=20, bad=5, max_impact=4)
+    growth_impact = score_to_impact(revenue_growth, good=10, bad=-5, max_impact=3)
+
+    banking_score = 0
+    banking_score += 2 if banking.get("max_dpd_entity", 0) > 60 else 0
+    banking_score += 2 if banking.get("dpd60_12m", 0) > 0 else 0
+    banking_score += 1.5 if banking.get("bounced", 0) > 1 else 0
+    banking_score += 1 if banking.get("gst_compliance") == "Irregular" else 0
+    banking_score += 1 if banking.get("cross_bank_npa") == "Yes" else 0
+
+    banking_impact = -min(banking_score, 8)
+
+    industry_map = {"Low": -1, "Medium": -3, "High": -5}
+    industry_impact = industry_map.get(assessment.get("industry_risk"), 0)
+
     drivers = [
-        ("Banking Conduct", -6.4),
-        ("Industry Risk", -3.8),
-        ("Management Quality", -2.9),
-        ("CIBIL Score", 0.0),
-        ("DSCR Ratio", 0.0),
+        ("DSCR Ratio", dscr_impact),
+        ("Banking Conduct", banking_impact),
+        ("Industry Risk", industry_impact),
+        ("Debt–Equity Ratio", de_impact),
+        ("Current Ratio", cr_impact),
+        ("EBITDA Margin", ebitda_impact),
+        ("Revenue Growth (YoY)", growth_impact),
     ]
 
     for name, val in drivers:
-        col1, col2 = st.columns([2, 6])
-        with col1:
+        c1, c2 = st.columns([2, 6])
+        with c1:
             st.write(name)
-        with col2:
-            st.progress(min(abs(val) / 7, 1.0))
-            st.caption(f"{val:+}")
+        with c2:
+            st.progress(min(abs(val) / 8, 1.0))
+            st.caption(f"{val:+.1f}")
 
     st.divider()
 
@@ -126,25 +180,6 @@ def render_ai_scorecard(calculating=False):
             "<h3>87.5%</h3><p>Precision Rate</p></div>",
             unsafe_allow_html=True
         )
-
-    st.divider()
-
-    # -----------------------------------
-    # RISK SUMMARY
-    # -----------------------------------
-    st.markdown("### 📋 Risk Assessment Summary")
-
-    r1, r2 = st.columns(2)
-
-    with r1:
-        st.markdown("**Positive Factors**")
-        st.write("• None identified")
-
-    with r2:
-        st.markdown("**Risk Concerns**")
-        st.write("❌ Banking Conduct: -6.4 points")
-        st.write("❌ Industry Risk: -3.8 points")
-        st.write("❌ Management Quality: -2.9 points")
 
     st.divider()
 

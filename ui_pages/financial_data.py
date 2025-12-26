@@ -8,15 +8,15 @@ def render_financial_data():
     # ---------- INIT SESSION ----------
     if "financials" not in st.session_state:
         st.session_state.financials = {
-            "FY 2021": {},
             "FY 2022": {},
             "FY 2023": {},
+            "FY 2024": {},
         }
 
     # ---------- FY SELECTION ----------
     fy = st.radio(
         "Select Financial Year",
-        ["FY 2021", "FY 2022", "FY 2023"],
+        ["FY 2022", "FY 2023", "FY 2024"],
         horizontal=True
     )
 
@@ -130,8 +130,8 @@ def render_financial_data():
             return ((end / start) ** (1 / years) - 1) * 100
         return None
 
-    fy21 = st.session_state.financials["FY 2021"].get("turnover")
-    fy23 = st.session_state.financials["FY 2023"].get("turnover")
+    fy21 = st.session_state.financials["FY 2022"].get("turnover")
+    fy23 = st.session_state.financials["FY 2024"].get("turnover")
 
     cagr = calc_cagr(fy21, fy23)
 
@@ -144,13 +144,6 @@ def render_financial_data():
 
     df = pd.DataFrame({
         "Particulars": ["Turnover", "EBITDA", "Net Profit", "Net Worth", "Total Debt"],
-        "FY 2021": [
-            st.session_state.financials["FY 2021"].get("turnover", "-"),
-            st.session_state.financials["FY 2021"].get("ebitda", "-"),
-            st.session_state.financials["FY 2021"].get("net_profit", "-"),
-            st.session_state.financials["FY 2021"].get("net_worth", "-"),
-            st.session_state.financials["FY 2021"].get("total_debt", "-"),
-        ],
         "FY 2022": [
             st.session_state.financials["FY 2022"].get("turnover", "-"),
             st.session_state.financials["FY 2022"].get("ebitda", "-"),
@@ -164,6 +157,13 @@ def render_financial_data():
             st.session_state.financials["FY 2023"].get("net_profit", "-"),
             st.session_state.financials["FY 2023"].get("net_worth", "-"),
             st.session_state.financials["FY 2023"].get("total_debt", "-"),
+        ],
+        "FY 2024": [
+            st.session_state.financials["FY 2024"].get("turnover", "-"),
+            st.session_state.financials["FY 2024"].get("ebitda", "-"),
+            st.session_state.financials["FY 2024"].get("net_profit", "-"),
+            st.session_state.financials["FY 2024"].get("net_worth", "-"),
+            st.session_state.financials["FY 2024"].get("total_debt", "-"),
         ],
     })
 

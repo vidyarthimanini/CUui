@@ -44,6 +44,29 @@ def explainable_impact(value, good, bad, max_impact):
 
 
 # --------------------------------------------------
+# SB BAND DEFINITIONS
+# --------------------------------------------------
+SB_BANDS = [
+    ("SB1", "Excellent", 90, 100),
+    ("SB2", "Very Good", 85, 89),
+    ("SB3", "Good", 80, 84),
+    ("SB4", "Good", 75, 79),
+    ("SB5", "Satisfactory", 70, 74),
+    ("SB6", "Satisfactory", 65, 69),
+    ("SB7", "Acceptable", 60, 64),
+    ("SB8", "Acceptable", 55, 59),
+    ("SB9", "Marginal", 50, 54),
+    ("SB10", "Marginal", 45, 49),
+    ("SB11", "Weak", 40, 44),
+    ("SB12", "Poor", 35, 39),
+    ("SB13", "Poor", 30, 34),
+    ("SB14", "Very Poor", 25, 29),
+    ("SB15", "Very Poor", 20, 24),
+    ("SB16", "Unacceptable", 0, 19),
+]
+
+
+# --------------------------------------------------
 # MAIN PAGE
 # --------------------------------------------------
 def render_ai_scorecard():
@@ -68,7 +91,15 @@ def render_ai_scorecard():
     last = res["latest"]
 
     fh_score = int(round(res["fh_score"]))
-    sb_text = "SB3 · Good" if fh_score >= 80 else "SB13 · Poor"
+
+    # --------------------------------------------------
+    # DERIVE SB BAND DYNAMICALLY
+    # --------------------------------------------------
+    sb_code, sb_label = "SB?", "Unknown"
+    for b, label, low, high in SB_BANDS:
+        if low <= fh_score <= high:
+            sb_code, sb_label = b, label
+            break
 
     # --------------------------------------------------
     # SCORE CARD
@@ -81,7 +112,7 @@ def render_ai_scorecard():
             <div style="background:#f3f4ff;padding:30px;border-radius:12px;text-align:center">
                 <h1 style="color:#5b5ff2;margin-bottom:0">{fh_score}</h1>
                 <p>Risk Score</p>
-                <span style="color:#d9534f;font-weight:600">{sb_text}</span>
+                <span style="color:#d9534f;font-weight:600">{sb_code} · {sb_label}</span>
             </div>
             """,
             unsafe_allow_html=True
@@ -89,18 +120,20 @@ def render_ai_scorecard():
 
     with right:
         st.markdown("### Risk Band Classification")
-        for b, l, r in [
-            ("SB1","Excellent","90–100"),
-            ("SB2","Very Good","85–89"),
-            ("SB3","Good","80–84"),
-            ("SB4","Good","75–79"),
-            ("SB5","Satisfactory","70–74"),
-            ("SB6","Satisfactory","65–69"),
-            ("SB7","Acceptable","60–64"),
-            ("SB8","Acceptable","55–59"),
-        ]:
-            st.markdown(f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
-                        unsafe_allow_html=True)
+        for b, label, low, high in SB_BANDS:
+            highlight = (
+                "background:#eef2ff;border-radius:6px;padding:4px;"
+                if b == sb_code else ""
+            )
+            st.markdown(
+                f"""
+                <div style="{highlight}">
+                    <b>{b}</b> {label}
+                    <span style="float:right;color:gray">{low}–{high}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
     st.divider()
 
@@ -108,7 +141,7 @@ def render_ai_scorecard():
     # DECISION
     # --------------------------------------------------
     decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
-    color = "#ecfdf3" if decision=="Approve" else "#fff7e6" if decision=="Review" else "#fff1f0"
+    color = "#ecfdf3" if decision == "Approve" else "#fff7e6" if decision == "Review" else "#fff1f0"
 
     st.markdown(
         f"""
@@ -123,29 +156,22 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # KEY RISK DRIVERS (CORRECTED)
+    # KEY RISK DRIVERS
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
-        ("DSCR Ratio",
-         explainable_impact(last["DSCR"], 1.5, 0.9, 8)),
-
+        ("DSCR Ratio", explainable_impact(last["DSCR"], 1.5, 0.9, 8)),
         ("Debt–Equity Ratio",
          explainable_impact(
              last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
              0.6, 0.25, 6)),
-
-        ("Current Ratio",
-         explainable_impact(last["Current Ratio"], 1.5, 1.0, 5)),
-
-        ("EBITDA Margin",
-         explainable_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
-
+        ("Current Ratio", explainable_impact(last["Current Ratio"], 1.5, 1.0, 5)),
+        ("EBITDA Margin", explainable_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
         ("Revenue Growth (YoY)",
          explainable_impact(
              last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
-             10, -5, 3))
+             10, -5, 3)),
     ]
 
     for name, val in drivers:
@@ -156,30 +182,32 @@ def render_ai_scorecard():
 
         with c2:
             bar_val = min(abs(val) / 8, 1.0)
+            st.progress(bar_val)
 
-            # COLOR BAR
             if val < 0:
-                st.progress(bar_val)
-                st.markdown(f"<span style='color:#d62728;font-weight:600'>🔴 {val:+.1f}</span>",
-                            unsafe_allow_html=True)
+                st.markdown(
+                    f"<span style='color:#d62728;font-weight:600'>🔴 {val:+.1f}</span>",
+                    unsafe_allow_html=True
+                )
             elif val > 0:
-                st.progress(bar_val)
-                st.markdown(f"<span style='color:#1f77b4;font-weight:600'>🔵 +{val:.1f}</span>",
-                            unsafe_allow_html=True)
+                st.markdown(
+                    f"<span style='color:#1f77b4;font-weight:600'>🔵 +{val:.1f}</span>",
+                    unsafe_allow_html=True
+                )
             else:
-                st.progress(0.05)
-                st.markdown("<span style='color:#2ca02c;font-weight:600'>🟢 Neutral</span>",
-                            unsafe_allow_html=True)
+                st.markdown(
+                    "<span style='color:#2ca02c;font-weight:600'>🟢 Neutral</span>",
+                    unsafe_allow_html=True
+                )
 
     st.divider()
 
     # --------------------------------------------------
-    # RISK SUMMARY (NOW TRUE)
+    # RISK SUMMARY
     # --------------------------------------------------
     st.markdown("### 📋 Risk Assessment Summary")
 
     positives, risks = [], []
-
     for name, val in drivers:
         if val < -1:
             risks.append(f"❌ {name}: {val:+.1f}")

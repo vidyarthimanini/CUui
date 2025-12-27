@@ -19,11 +19,11 @@ def style_timeseries(ax, title):
 
 
 # ==================================================
-# SYMMETRIC EXPLAINABLE IMPACT (FIXED)
+# IMPACT SCORING (KEY DRIVERS)
 # ==================================================
 def score_to_impact(value, good, bad, max_impact):
     """
-    Symmetric impact:
+    Symmetric explainable impact:
     bad  -> -max_impact
     mid  -> 0
     good -> +max_impact
@@ -58,9 +58,10 @@ def render_ai_scorecard():
     companies = df["Company Name"].dropna().unique()
     company = st.selectbox("Select Company", companies)
 
-    # Always recompute → prevents stale forecast/driver mismatch
+    # ALWAYS recompute model → no stale forecast
     if st.button("▶ Run AI Model"):
-        st.session_state["model_result"] = analyze_company(df, company)
+        res = analyze_company(df, company)
+        st.session_state["model_result"] = res
 
     if "model_result" not in st.session_state:
         st.info("Select a company and run the AI model.")
@@ -172,7 +173,7 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # ---------------- KEY RISK DRIVERS (FIXED & DYNAMIC) ----------------
+    # ---------------- KEY RISK DRIVERS ----------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
@@ -195,16 +196,18 @@ def render_ai_scorecard():
 
     for name, val in drivers:
         c1, c2 = st.columns([2, 6])
+
         with c1:
             st.write(name)
+
         with c2:
             st.progress(min(abs(val) / 8, 1.0))
             st.caption(f"{val:+.1f}")
 
-        if val <= -1:
+        if val < -1:
             risks.append(f"❌ {name}: {val:+.1f}")
-        elif val >= 1:
-            positives.append(f"✅ {name}: +{val:.1f}")
+        elif val >= 0:
+            positives.append(f"✅ {name}")
 
     st.divider()
 
@@ -227,9 +230,12 @@ def render_ai_scorecard():
 
     # ---------------- NAVIGATION ----------------
     n1, n2, n3 = st.columns(3)
+
     with n1:
         st.button("← Back to Documents")
+
     with n2:
         st.button("⬇ Export Report")
+
     with n3:
         st.button("Continue to Tools →")

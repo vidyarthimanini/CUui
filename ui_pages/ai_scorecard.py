@@ -6,29 +6,25 @@ from model.ews_model import analyze_company
 
 
 # --------------------------------------------------
-# SMALL PLOT FORMATTER (UNIFORM SIZE + INTEGER AXES)
+# PLOT STYLING (COLAB-LIKE)
 # --------------------------------------------------
-def finalize_small_plot(ax, title=None):
+def style_timeseries(ax, title):
+    ax.set_title(title, fontsize=11)
+    ax.grid(alpha=0.4)
+    ax.legend(fontsize=9)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-
-    if title:
-        ax.set_title(title, fontsize=9)
-
-    ax.tick_params(axis="both", labelsize=8)
-    ax.grid(alpha=0.3)
-    plt.tight_layout(pad=0.6)
+    ax.tick_params(axis="both", labelsize=9)
 
 
 # --------------------------------------------------
-# IMPACT SCORING (SHAP-STYLE)
+# IMPACT SCORING (EXPLAINABILITY)
 # --------------------------------------------------
 def score_to_impact(value, good, bad, max_impact):
     if value is None:
         return 0.0
     try:
         value = float(value)
-    except Exception:
+    except:
         return 0.0
 
     if value >= good:
@@ -68,7 +64,7 @@ def render_ai_scorecard():
     sb_text = "SB3 · Good" if fh_score >= 80 else "SB13 · Poor"
 
     # --------------------------------------------------
-    # SCORE + RISK BAND
+    # SCORE CARD
     # --------------------------------------------------
     left, right = st.columns([1, 2])
 
@@ -81,7 +77,7 @@ def render_ai_scorecard():
                 <span style="color:#d9534f;font-weight:600">{sb_text}</span>
             </div>
             """,
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     with right:
@@ -99,7 +95,7 @@ def render_ai_scorecard():
         for b, l, r in bands:
             st.markdown(
                 f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
-                unsafe_allow_html=True,
+                unsafe_allow_html=True
             )
 
     st.divider()
@@ -122,97 +118,98 @@ def render_ai_scorecard():
             <p>Based on AI risk assessment and financial health indicators.</p>
         </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
 
     st.divider()
 
     # --------------------------------------------------
-    # 📈 FH SCORE + FORECAST (UNIFORM WIDTH)
+    # FH SCORE + FORECAST (COLAB STYLE)
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4.2, 1.8))
+    fig, ax = plt.subplots(figsize=(6, 3))
 
     ax.plot(
         res["history"]["FY"],
-        res["history"]["FH_Score"].round(0),
+        res["history"]["FH_Score"],
         marker="o",
-        label="Historical",
+        linewidth=2,
+        label="Historical"
     )
 
     ax.plot(
         [res["history"]["FY"].iloc[-1], res["history"]["FY"].iloc[-1] + 1],
-        [
-            int(round(res["history"]["FH_Score"].iloc[-1])),
-            int(round(res["forecast"])),
-        ],
-        "--s",
-        label="Forecast",
+        [res["history"]["FH_Score"].iloc[-1], res["forecast"]],
+        linestyle="--",
+        marker="s",
+        linewidth=2,
+        label="Forecast"
     )
 
-    finalize_small_plot(ax, "Financial Health Score")
-    ax.legend(fontsize=8)
+    style_timeseries(ax, "Financial Health Score Trend")
     st.pyplot(fig)
 
     # --------------------------------------------------
-    # 📈 REVENUE GROWTH
+    # REVENUE GROWTH (COLAB STYLE)
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4.2, 1.8))
+    fig, ax = plt.subplots(figsize=(6, 3))
 
     ax.plot(
         res["growth"]["FY"],
-        (res["growth"]["Growth_1Y"] * 100).round(0),
-        "o-",
+        res["growth"]["Growth_1Y"] * 100,
+        marker="o",
+        linewidth=2,
+        label="Revenue Growth"
     )
 
-    finalize_small_plot(ax, "Revenue Growth (%)")
+    ax.set_ylabel("%")
+    style_timeseries(ax, "Revenue Growth (YoY %)")
     st.pyplot(fig)
 
     # --------------------------------------------------
-    # 📈 EBITDA MARGIN
+    # EBITDA MARGIN (COLAB STYLE)
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4.2, 1.8))
+    fig, ax = plt.subplots(figsize=(6, 3))
 
     ax.plot(
         res["ebitda"]["FY"],
-        (res["ebitda"]["EBITDA_Margin"] * 100).round(0),
-        "s-",
+        res["ebitda"]["EBITDA_Margin"] * 100,
+        marker="s",
+        linewidth=2,
+        label="EBITDA Margin"
     )
 
-    finalize_small_plot(ax, "EBITDA Margin (%)")
+    ax.set_ylabel("%")
+    style_timeseries(ax, "EBITDA Margin (%)")
     st.pyplot(fig)
 
     st.divider()
 
     # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS
+    # KEY RISK DRIVERS (EXPLAINABLE)
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable Impact)")
 
     drivers = [
-        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
-        (
-            "Debt–Equity Ratio",
-            score_to_impact(
-                last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
-                0.6,
-                0.25,
-                6,
-            ),
-        ),
-        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
-        (
-            "EBITDA Margin",
-            score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4),
-        ),
-        (
-            "Revenue Growth (YoY)",
-            score_to_impact(
-                last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
-                10,
-                -5,
-                3,
-            ),
-        ),
+        ("DSCR Ratio",
+         score_to_impact(last["DSCR"], good=1.5, bad=0.9, max_impact=8)),
+
+        ("Debt–Equity Ratio",
+         score_to_impact(
+             last["Total Debt (₹ Crore)"] / (last["Net Worth (₹ Crore)"] + 1e-6),
+             good=0.6, bad=0.25, max_impact=6
+         )),
+
+        ("Current Ratio",
+         score_to_impact(last["Current Ratio"], good=1.5, bad=1.0, max_impact=5)),
+
+        ("EBITDA Margin",
+         score_to_impact(last["EBITDA_Margin"] * 100, good=20, bad=5, max_impact=4)),
+
+        ("Revenue Growth (YoY)",
+         score_to_impact(
+             last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
+             good=10, bad=-5, max_impact=3
+         )),
     ]
 
     for name, val in drivers:
@@ -226,7 +223,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 📋 RISK SUMMARY
+    # RISK SUMMARY
     # --------------------------------------------------
     st.markdown("### 📋 Risk Assessment Summary")
 
@@ -253,7 +250,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # MODEL METRICS
+    # MODEL METRICS (STATIC)
     # --------------------------------------------------
     m1, m2, m3 = st.columns(3)
 
@@ -261,21 +258,21 @@ def render_ai_scorecard():
         st.markdown(
             "<div style='background:#eef6ff;padding:20px;border-radius:12px;text-align:center'>"
             "<h3>94.2%</h3><p>Model Accuracy</p></div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     with m2:
         st.markdown(
             "<div style='background:#ecfdf3;padding:20px;border-radius:12px;text-align:center'>"
             "<h3>0.89</h3><p>AUC Score</p></div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     with m3:
         st.markdown(
             "<div style='background:#f7f0ff;padding:20px;border-radius:12px;text-align:center'>"
             "<h3>87.5%</h3><p>Precision Rate</p></div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
     st.divider()

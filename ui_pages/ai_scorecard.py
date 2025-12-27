@@ -77,9 +77,7 @@ def render_ai_scorecard():
     st.markdown("## 🤖 AI Model Feedback & Scorecard")
     st.divider()
 
-    # --------------------------------------------------
-    # LOAD DATA
-    # --------------------------------------------------
+    # ---------------- LOAD DATA ----------------
     df = pd.read_excel("data/2companies.xlsx")
     company = st.selectbox("Select Company", df["Company Name"].dropna().unique())
 
@@ -97,9 +95,7 @@ def render_ai_scorecard():
     sb_code, sb_label = get_sb_band(fh_score)
     sb_text = f"{sb_code} · {sb_label}"
 
-    # --------------------------------------------------
-    # SCORE CARD
-    # --------------------------------------------------
+    # ---------------- SCORE CARD ----------------
     left, right = st.columns([1, 2])
 
     with left:
@@ -125,11 +121,9 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # --------------------------------------------------
-    # DECISION SUMMARY
-    # --------------------------------------------------
+    # ---------------- DECISION SUMMARY ----------------
     decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
-    color = "#ecfdf3" if decision=="Approve" else "#fff7e6" if decision=="Review" else "#fff1f0"
+    color = "#ecfdf3" if decision == "Approve" else "#fff7e6" if decision == "Review" else "#fff1f0"
 
     st.markdown(
         f"""
@@ -144,42 +138,37 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # --------------------------------------------------
-    # FH SCORE + 3Y FORECAST
-    # --------------------------------------------------
+    # ---------------- FH SCORE + 3Y FORECAST ----------------
     hist_fy = res["history"]["FY"].tolist()
-    hist_score = res["history"]["FH_Score"].tolist()
+    hist_score = res["history"]["FH_Score"].tolist()
 
+    last_fy = hist_fy[-1]
+    last_score = hist_score[-1]
 
+    forecast_years = [last_fy + i for i in range(1, 4)]
+    forecast_scores = (
+        list(res["forecast"])
+        if isinstance(res["forecast"], (list, tuple))
+        else [res["forecast"]] * 3
+    )
 
-    last_fy = hist_fy[-1]
-    last_score = hist_score[-1]
-
-
-
-    forecast_years = [last_fy + i for i in range(1, 4)]
-    forecast_scores = list(res["forecast"]) if isinstance(res["forecast"], (list, tuple)) else [res["forecast"]] * 3
-
-
-
-    _, mid, _ = st.columns([1, 3, 1])
-    with mid:
-        fig, ax = plt.subplots(figsize=(6, 2))
-        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
-        ax.plot(
-            [last_fy] + forecast_years,
-            [last_score] + forecast_scores,
-            "--s", linewidth=2, label="Forecast (3Y)"
-        )
-        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
-        st.pyplot(fig, use_container_width=True)
-
+    _, mid, _ = st.columns([1, 3, 1])
+    with mid:
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
+        ax.plot(
+            [last_fy] + forecast_years,
+            [last_score] + forecast_scores,
+            "--s",
+            linewidth=2,
+            label="Forecast (3Y)",
+        )
+        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
+        st.pyplot(fig, use_container_width=True)
 
     st.divider()
 
-    # --------------------------------------------------
-    # REVENUE & EBITDA
-    # --------------------------------------------------
+    # ---------------- REVENUE & EBITDA ----------------
     c1, c2 = st.columns(2)
 
     with c1:
@@ -196,9 +185,7 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # --------------------------------------------------
-    # KEY RISK DRIVERS
-    # --------------------------------------------------
+    # ---------------- KEY RISK DRIVERS ----------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
@@ -209,12 +196,10 @@ def render_ai_scorecard():
              0.6, 0.25, 6)),
         ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
         ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
-        ("Revenue Growth (YoY)",
-         score_to_impact(last["Growth_1Y"] * 100, 10, -5, 3)),
+        ("Revenue Growth (YoY)", score_to_impact(last["Growth_1Y"] * 100, 10, -5, 3)),
     ]
 
-    positive_factors = []
-    risk_concerns = []
+    positive_factors, risk_concerns = [], []
 
     for name, val in drivers:
         c1, c2 = st.columns([2, 6])
@@ -231,9 +216,7 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # --------------------------------------------------
-    # RISK ASSESSMENT SUMMARY
-    # --------------------------------------------------
+    # ---------------- RISK SUMMARY ----------------
     st.markdown("### 📋 Risk Assessment Summary")
 
     r1, r2 = st.columns(2)
@@ -250,10 +233,11 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # --------------------------------------------------
-    # NAVIGATION
-    # --------------------------------------------------
+    # ---------------- NAVIGATION ----------------
     n1, n2, n3 = st.columns(3)
-    with n1: st.button("← Back to Documents")
-    with n2: st.button("⬇ Export Report")
-    with n3: st.button("Continue to Tools →")
+    with n1:
+        st.button("← Back to Documents")
+    with n2:
+        st.button("⬇ Export Report")
+    with n3:
+        st.button("Continue to Tools →")

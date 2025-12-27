@@ -1,20 +1,9 @@
-# model/engine.py
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import Ridge
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
 
 # --------------------------------------------------
-# Helpers
+# LABEL HELPERS
 # --------------------------------------------------
-def num(x):
-    try:
-        return float(str(x).replace(",", "").replace("₹", ""))
-    except:
-        return np.nan
-
-
 def sb_label(score):
     s = float(score)
     if s >= 90: return ("SB1", "Excellent", "90–100")
@@ -34,80 +23,14 @@ def categorize_score_numeric(score):
 
 
 # --------------------------------------------------
-# CORE MODEL RUNNER
+# ENGINEER DATAFRAME (CRITICAL)
 # --------------------------------------------------
-def run_model(df: pd.DataFrame, company: str):
-    df = df.copy()
-    df.columns = [c.strip() for c in df.columns]
-
-    df["FY"] = pd.to_numeric(df["FY"], errors="coerce")
-    df = df.dropna(subset=["Company Name", "FY"])
-
-    # numeric parsing
-    num_cols = [
-        "Turnover (₹ Crore)", "EBITDA (₹ Crore)", "Net Worth (₹ Crore)",
-        "Total Debt (₹ Crore)", "DSCR", "Current Ratio",
-        "ROCE (%)", "ROE (%)"
-    ]
-    for c in num_cols:
-        if c in df.columns:
-            df[c] = df[c].apply(num)
-
-    # ---------------- FH Formula ----------------
-    def compute_fh(r):
-        leverage = 100 - min((r["Total Debt (₹ Crore)"] / (r["Net Worth (₹ Crore)"] + 1e-6)) * 20, 60)
-        liquidity = min(r["Current Ratio"] * 50, 100)
-        coverage = min(r["DSCR"] * 50, 100)
-        profitability = np.mean([r["ROCE (%)"], r["ROE (%)"]])
-        return np.clip(
-            0.35 * leverage +
-            0.25 * liquidity +
-            0.20 * coverage +
-            0.20 * profitability,
-            0, 100
-        )
-
-    df["FH_Score"] = df.apply(compute_fh, axis=1)
-
-    hist = df[df["Company Name"].str.lower() == company.lower()].sort_values("FY")
-    if hist.empty:
-        raise ValueError("Company not found")
-
-    # ---------------- ML Forecast ----------------
-    df["FH_Next"] = df.groupby("Company Name")["FH_Score"].shift(-1)
-    train = df.dropna(subset=["FH_Next"])
-
-    FEATURES = ["FH_Score"]
-    pipe = Pipeline([
-        ("imp", SimpleImputer(strategy="median")),
-        ("model", Ridge(alpha=1.2))
-    ])
-    pipe.fit(train[FEATURES], train["FH_Next"])
-
-    last = hist.iloc[-1]
-    forecast = pipe.predict(pd.DataFrame([[last["FH_Score"]]], columns=FEATURES))[0]
-
-    sb_code, sb_text, sb_range = sb_label(last["FH_Score"])
-    risk_band = categorize_score_numeric(last["FH_Score"])
-
-    return {
-        "fh_score": round(last["FH_Score"], 2),
-        "sb_code": sb_code,
-        "sb_text": sb_text,
-        "sb_range": sb_range,
-        "risk_band": risk_band,
-        "history": hist[["FY", "FH_Score"]],
-        "forecast": forecast
-    }
-# --------------------------------------------------
-# DATAFRAME ENGINEERING (FROM COLAB MODEL)
-# --------------------------------------------------
-def engineer_dataframe(df: pd.DataFrame):
+def engineer_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.copy()
     df.columns = [c.strip() for c in df.columns]
 
-    # ---------------- NUMERIC CLEANING ----------------
+    # ---------------- NUMERIC PARSER ----------------
     def num(x):
         try:
             return float(str(x).replace(",", "").replace("₹", ""))
@@ -118,8 +41,7 @@ def engineer_dataframe(df: pd.DataFrame):
         "Turnover (₹ Crore)", "EBITDA (₹ Crore)", "Net Profit (₹ Crore)",
         "Net Worth (₹ Crore)", "Total Debt (₹ Crore)",
         "DSCR", "Current Ratio", "ROCE (%)", "ROE (%)",
-        "Credit Utilization (%)", "Loan Amount",
-        "Collateral Value", "LTV Ratio", "Maximum DPD Observed"
+        "Maximum DPD Observed"
     ]
 
     for c in num_cols:
@@ -136,7 +58,7 @@ def engineer_dataframe(df: pd.DataFrame):
     )
 
     # ---------------- LOAN TYPE EWS ----------------
-    df["Loan_Type_EWS"] = 70  # fixed placeholder (as in your backend)
+    df["Loan_Type_EWS"] = 70
 
     # ---------------- FH SCORE ----------------
     def compute_fh(r):
@@ -151,24 +73,29 @@ def engineer_dataframe(df: pd.DataFrame):
             np.interp(r["ROE (%)"], [5, 10, 20], [40, 70, 100])
         ])
 
-        fh = (
+        return float(np.clip(
             0.35 * leverage +
             0.20 * liquidity +
             0.20 * coverage +
             0.15 * profitability +
-            0.10 * r["Loan_Type_EWS"]
-        )
-        return float(np.clip(fh, 0, 100))
+            0.10 * r["Loan_Type_EWS"],
+            0, 100
+        ))
 
-        df["FH_Score"] = df.apply(compute_fh, axis=1)
-    
-        # ---------------- TRENDS ----------------
+    df["FH_Score"] = df.apply(compute_fh, axis=1)
+
+    # ---------------- TRENDS ----------------
+    if "FY" in df.columns:
         df = df.sort_values(["Company Name", "FY"])
         df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"] / (df["Turnover (₹ Crore)"] + 1e-6)
         df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
         df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
             lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
         )
+    else:
+        df["EBITDA_Margin"] = np.nan
+        df["Growth_1Y"] = np.nan
+        df["Trend_Slope"] = 0
 
-        return df
-
+    # 🔥 THIS RETURN WAS MISSING / BROKEN BEFORE
+    return df

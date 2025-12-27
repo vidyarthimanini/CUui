@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from model.engine import run_model
-
-# NEW
 from model.fh_model import run_fh_model
+
 
 def render_ai_scorecard():
 
@@ -15,11 +13,11 @@ def render_ai_scorecard():
     # LOAD DATA FROM /data FOLDER
     # ============================================================
     MASTER_PATH = "data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx"
-    INPUT_PATH  = "data/2companies.xlsx"
+    INPUT_PATH = "data/2companies.xlsx"
 
     try:
         df_master = pd.read_excel(MASTER_PATH)
-        df_input  = pd.read_excel(INPUT_PATH)
+        df_input = pd.read_excel(INPUT_PATH)
     except Exception as e:
         st.error("❌ Failed to load Excel files from /data folder")
         st.exception(e)
@@ -35,12 +33,14 @@ def render_ai_scorecard():
     companies = df_input["Company Name"].dropna().unique()
     company = st.selectbox("Select Company", companies)
 
+    # ============================================================
+    # RUN MODEL
+    # ============================================================
     if st.button("▶ Run AI Model"):
 
         with st.spinner("Running Financial Health Model..."):
             input_df = df_input[df_input["Company Name"] == company]
-                result = run_fh_model(df_master, input_df)
-        
+            result = run_fh_model(df_master, input_df)
 
         st.success("Model run completed")
         st.divider()

@@ -38,7 +38,9 @@ def render_ai_scorecard():
     if st.button("▶ Run AI Model"):
 
         with st.spinner("Running Financial Health Model..."):
-            result = run_model(df_master, company)
+            input_df = df_input[df_input["Company Name"] == company]
+                result = run_fh_model(df_master, input_df)
+        
 
         st.success("Model run completed")
         st.divider()

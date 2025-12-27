@@ -19,14 +19,14 @@ def style_timeseries(ax, title):
 
 
 # ==================================================
-# SYMMETRIC EXPLAINABLE IMPACT (KEY DRIVERS ONLY)
+# SYMMETRIC EXPLAINABLE IMPACT (FIXED)
 # ==================================================
-def explainable_impact(value, good, bad, max_impact):
+def score_to_impact(value, good, bad, max_impact):
     """
-    Maps metric → [-max_impact … +max_impact]
-    bad → -max
-    midpoint → 0
-    good → +max
+    Symmetric impact:
+    bad  -> -max_impact
+    mid  -> 0
+    good -> +max_impact
     """
     if value is None or pd.isna(value):
         return 0.0
@@ -39,7 +39,7 @@ def explainable_impact(value, good, bad, max_impact):
     if value <= bad:
         return -max_impact
     if value >= good:
-        return +max_impact
+        return max_impact
 
     mid = (good + bad) / 2
     return (value - mid) / (good - mid) * max_impact
@@ -58,6 +58,7 @@ def render_ai_scorecard():
     companies = df["Company Name"].dropna().unique()
     company = st.selectbox("Select Company", companies)
 
+    # Always recompute → prevents stale forecast/driver mismatch
     if st.button("▶ Run AI Model"):
         st.session_state["model_result"] = analyze_company(df, company)
 
@@ -114,6 +115,7 @@ def render_ai_scorecard():
         <div style="background:{bg};padding:20px;border-radius:12px">
             <h4>Decision Recommendation</h4>
             <h2>{decision}</h2>
+            <p>Based on AI-driven financial health assessment.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -122,7 +124,7 @@ def render_ai_scorecard():
     st.divider()
 
     # ==================================================
-    # 📈 FH SCORE + 3Y FORECAST (UNCHANGED & CORRECT)
+    # 📈 FH SCORE + 3Y FORECAST (CORRECT & STABLE)
     # ==================================================
     hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
@@ -153,63 +155,60 @@ def render_ai_scorecard():
 
     st.divider()
 
-    # ==================================================
-    # 🔍 KEY RISK DRIVERS (DYNAMIC & SAVED)
-    # ==================================================
+    # ---------------- REVENUE & EBITDA ----------------
+    c1, c2 = st.columns(2)
+
+    with c1:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o")
+        style_timeseries(ax, "Revenue Growth (YoY %)")
+        st.pyplot(fig)
+
+    with c2:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s")
+        style_timeseries(ax, "EBITDA Margin (%)")
+        st.pyplot(fig)
+
+    st.divider()
+
+    # ---------------- KEY RISK DRIVERS (FIXED & DYNAMIC) ----------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
-        ("DSCR Ratio",
-         explainable_impact(last["DSCR"], 1.5, 0.9, 8)),
-        ("Debt–Equity Ratio",
-         explainable_impact(
-             last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
-             0.6, 0.25, 6)),
-        ("Current Ratio",
-         explainable_impact(last["Current Ratio"], 1.5, 1.0, 5)),
-        ("EBITDA Margin",
-         explainable_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
-        ("Revenue Growth (YoY)",
-         explainable_impact(last["Growth_1Y"] * 100, 10, -5, 3)),
+        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
+        (
+            "Debt–Equity Ratio",
+            score_to_impact(
+                last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
+                0.6,
+                0.25,
+                6,
+            ),
+        ),
+        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
+        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
+        ("Revenue Growth (YoY)", score_to_impact(last["Growth_1Y"] * 100, 10, -5, 3)),
     ]
 
     positives, risks = [], []
 
     for name, val in drivers:
         c1, c2 = st.columns([2, 6])
-
         with c1:
             st.write(name)
-
         with c2:
-            bar = min(abs(val) / 8, 1.0)
+            st.progress(min(abs(val) / 8, 1.0))
+            st.caption(f"{val:+.1f}")
 
-            if val < 0:
-                st.progress(bar)
-                st.markdown(
-                    f"<span style='color:#d62728;font-weight:600'>🔴 {val:+.1f}</span>",
-                    unsafe_allow_html=True,
-                )
-                risks.append(f"❌ {name}: {val:+.1f}")
-            elif val > 0:
-                st.progress(bar)
-                st.markdown(
-                    f"<span style='color:#1f77b4;font-weight:600'>🔵 +{val:.1f}</span>",
-                    unsafe_allow_html=True,
-                )
-                positives.append(f"✅ {name}: +{val:.1f}")
-            else:
-                st.progress(0.05)
-                st.markdown(
-                    "<span style='color:#2ca02c;font-weight:600'>🟢 Neutral</span>",
-                    unsafe_allow_html=True,
-                )
+        if val <= -1:
+            risks.append(f"❌ {name}: {val:+.1f}")
+        elif val >= 1:
+            positives.append(f"✅ {name}: +{val:.1f}")
 
     st.divider()
 
-    # ==================================================
-    # 📋 RISK SUMMARY
-    # ==================================================
+    # ---------------- RISK SUMMARY ----------------
     st.markdown("### 📋 Risk Assessment Summary")
 
     r1, r2 = st.columns(2)

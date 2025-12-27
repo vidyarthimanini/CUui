@@ -120,7 +120,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 📈 FH SCORE + 3Y FORECAST (ROBUST)
+    # 📈 FH SCORE + 3Y FORECAST (UI SPACE FIXED)
     # --------------------------------------------------
     hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
@@ -130,23 +130,25 @@ def render_ai_scorecard():
 
     forecast_years = [last_fy + i for i in range(1, 4)]
 
-    # SAFE NORMALIZATION
     if isinstance(res["forecast"], (list, tuple)):
         forecast_scores = list(res["forecast"])
     else:
         forecast_scores = [res["forecast"]] * 3
 
-    fig, ax = plt.subplots(figsize=(5, 2.4))
+    _, mid, _ = st.columns([1, 3, 1])
 
-    ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
-    ax.plot(
-        [last_fy] + forecast_years,
-        [last_score] + forecast_scores,
-        "--s", linewidth=2, label="Forecast (3Y)"
-    )
+    with mid:
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
+        ax.plot(
+            [last_fy] + forecast_years,
+            [last_score] + forecast_scores,
+            "--s", linewidth=2, label="Forecast (3Y)"
+        )
+        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
+        st.pyplot(fig, use_container_width=True)
 
-    style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
-    st.pyplot(fig)
+    st.divider()
 
     # --------------------------------------------------
     # 📈 REVENUE & EBITDA (SIDE BY SIDE)
@@ -155,21 +157,13 @@ def render_ai_scorecard():
 
     with c1:
         fig, ax = plt.subplots(figsize=(4.5, 2.2))
-        ax.plot(
-            res["growth"]["FY"],
-            res["growth"]["Growth_1Y"] * 100,
-            marker="o", linewidth=2
-        )
+        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o", linewidth=2)
         style_timeseries(ax, "Revenue Growth (YoY %)")
         st.pyplot(fig)
 
     with c2:
         fig, ax = plt.subplots(figsize=(4.5, 2.2))
-        ax.plot(
-            res["ebitda"]["FY"],
-            res["ebitda"]["EBITDA_Margin"] * 100,
-            marker="s", linewidth=2
-        )
+        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s", linewidth=2)
         style_timeseries(ax, "EBITDA Margin (%)")
         st.pyplot(fig)
 
@@ -183,15 +177,11 @@ def render_ai_scorecard():
     drivers = [
         ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
         ("Debt–Equity Ratio",
-         score_to_impact(
-             last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
-             0.6, 0.25, 6)),
+         score_to_impact(last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6), 0.6, 0.25, 6)),
         ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
-        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"]*100, 20, 5, 4)),
+        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
         ("Revenue Growth (YoY)",
-         score_to_impact(
-             last["Growth_1Y"]*100 if not pd.isna(last["Growth_1Y"]) else None,
-             10, -5, 3))
+         score_to_impact(last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None, 10, -5, 3)),
     ]
 
     for name, val in drivers:

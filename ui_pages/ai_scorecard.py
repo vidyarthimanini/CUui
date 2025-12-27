@@ -11,7 +11,7 @@ except:
     PLOTLY = False
 
 # MODEL IMPORT (YOU ALREADY CREATED THIS)
-from model.fh_model import run_model
+from model.model import run_model
 
 
 # -------------------------------------------------

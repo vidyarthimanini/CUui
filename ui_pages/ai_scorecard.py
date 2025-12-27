@@ -3,6 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from model.engine import run_model
 
+# NEW
+from model.fh_model import run_fh_model
+
 def render_ai_scorecard():
 
     st.markdown("## 🤖 AI Model Feedback & Scorecard")

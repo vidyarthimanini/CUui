@@ -1,7 +1,23 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from model.ews_model import analyze_company
+
+
+# --------------------------------------------------
+# SMALL PLOT FORMATTER
+# --------------------------------------------------
+def finalize_small_plot(ax, title=None):
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+    if title:
+        ax.set_title(title, fontsize=9)
+
+    ax.tick_params(axis="both", labelsize=8)
+    ax.grid(alpha=0.3)
+    plt.tight_layout(pad=0.6)
 
 
 # --------------------------------------------------
@@ -48,7 +64,7 @@ def render_ai_scorecard():
     res = st.session_state["model_result"]
     last = res["latest"]
 
-    fh_score = res["fh_score"]
+    fh_score = int(round(res["fh_score"]))
     sb_text = "SB3 · Good" if fh_score >= 80 else "SB13 · Poor"
 
     # --------------------------------------------------
@@ -71,16 +87,16 @@ def render_ai_scorecard():
     with right:
         st.markdown("### Risk Band Classification")
         bands = [
-            ("SB1","Excellent","90–100"),
-            ("SB2","Very Good","85–89"),
-            ("SB3","Good","80–84"),
-            ("SB4","Good","75–79"),
-            ("SB5","Satisfactory","70–74"),
-            ("SB6","Satisfactory","65–69"),
-            ("SB7","Acceptable","60–64"),
-            ("SB8","Acceptable","55–59"),
+            ("SB1", "Excellent", "90–100"),
+            ("SB2", "Very Good", "85–89"),
+            ("SB3", "Good", "80–84"),
+            ("SB4", "Good", "75–79"),
+            ("SB5", "Satisfactory", "70–74"),
+            ("SB6", "Satisfactory", "65–69"),
+            ("SB7", "Acceptable", "60–64"),
+            ("SB8", "Acceptable", "55–59"),
         ]
-        for b,l,r in bands:
+        for b, l, r in bands:
             st.markdown(
                 f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
                 unsafe_allow_html=True
@@ -92,7 +108,11 @@ def render_ai_scorecard():
     # DECISION (DYNAMIC)
     # --------------------------------------------------
     decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
-    decision_color = "#ecfdf3" if decision == "Approve" else "#fff7e6" if decision == "Review" else "#fff1f0"
+    decision_color = (
+        "#ecfdf3" if decision == "Approve"
+        else "#fff7e6" if decision == "Review"
+        else "#fff1f0"
+    )
 
     st.markdown(
         f"""
@@ -108,42 +128,63 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 📈 FORECAST (SMALLER)
+    # 📈 FH SCORE + FORECAST
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4.2, 1.9))
-    ax.plot(res["history"]["FY"], res["history"]["FH_Score"], marker="o", label="Historical")
+    fig, ax = plt.subplots(figsize=(4.2, 1.8))
+
+    ax.plot(
+        res["history"]["FY"],
+        res["history"]["FH_Score"].round(0),
+        marker="o",
+        label="Historical"
+    )
+
     ax.plot(
         [res["history"]["FY"].iloc[-1], res["history"]["FY"].iloc[-1] + 1],
-        [res["history"]["FH_Score"].iloc[-1], res["forecast"]],
-        "--s", label="Forecast"
+        [
+            int(round(res["history"]["FH_Score"].iloc[-1])),
+            int(round(res["forecast"]))
+        ],
+        "--s",
+        label="Forecast"
     )
-    ax.set_title("FH Forecast")
+
+    finalize_small_plot(ax, "Financial Health Score")
     ax.legend(fontsize=8)
-    ax.grid(alpha=0.3)
     st.pyplot(fig)
 
     # --------------------------------------------------
-    # 📈 REVENUE GROWTH (SMALLER)
+    # 📈 REVENUE GROWTH
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4.2, 1.9))
-    ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, "o-")
-    ax.set_title("Revenue Growth (%)")
-    ax.grid(alpha=0.3)
+    fig, ax = plt.subplots(figsize=(4.2, 1.8))
+
+    ax.plot(
+        res["growth"]["FY"],
+        (res["growth"]["Growth_1Y"] * 100).round(0),
+        "o-"
+    )
+
+    finalize_small_plot(ax, "Revenue Growth (%)")
     st.pyplot(fig)
 
     # --------------------------------------------------
-    # 📈 EBITDA MARGIN (SMALLER)
+    # 📈 EBITDA MARGIN
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(4.2, 1.9))
-    ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, "s-")
-    ax.set_title("EBITDA Margin (%)")
-    ax.grid(alpha=0.3)
+    fig, ax = plt.subplots(figsize=(4.2, 1.8))
+
+    ax.plot(
+        res["ebitda"]["FY"],
+        (res["ebitda"]["EBITDA_Margin"] * 100).round(0),
+        "s-"
+    )
+
+    finalize_small_plot(ax, "EBITDA Margin (%)")
     st.pyplot(fig)
 
     st.divider()
 
     # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS (FROM MODEL VALUES)
+    # 🔍 KEY RISK DRIVERS
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable Impact)")
 
@@ -164,8 +205,10 @@ def render_ai_scorecard():
          score_to_impact(last["EBITDA_Margin"] * 100, good=20, bad=5, max_impact=4)),
 
         ("Revenue Growth (YoY)",
-         score_to_impact(last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
-                         good=10, bad=-5, max_impact=3)),
+         score_to_impact(
+             last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
+             good=10, bad=-5, max_impact=3
+         )),
     ]
 
     for name, val in drivers:
@@ -174,7 +217,7 @@ def render_ai_scorecard():
             st.write(name)
         with c2:
             st.progress(min(abs(val) / 8, 1.0))
-            st.caption(f"{val:+.1f}")
+            st.caption(f"{int(round(val)):+d}")
 
     st.divider()
 
@@ -187,7 +230,7 @@ def render_ai_scorecard():
 
     for name, val in drivers:
         if val <= -1:
-            concerns.append(f"❌ {name}: {val:+.1f}")
+            concerns.append(f"❌ {name}: {int(round(val)):+d}")
         elif val >= -0.3:
             positives.append(f"✅ {name}")
 
@@ -206,7 +249,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # MODEL METRICS (STATIC – AS REQUIRED)
+    # MODEL METRICS (STATIC)
     # --------------------------------------------------
     m1, m2, m3 = st.columns(3)
 

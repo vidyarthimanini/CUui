@@ -4,7 +4,9 @@ from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 
-# ---------------- SAFE NUMERIC PARSER ----------------
+# --------------------------------------------------
+# SAFE NUMERIC PARSER
+# --------------------------------------------------
 def num(x):
     try:
         return float(str(x).replace(",", "").replace("₹", ""))
@@ -12,7 +14,61 @@ def num(x):
         return np.nan
 
 
-# ---------------- MAIN MODEL ----------------
+# --------------------------------------------------
+# PENALTIES (EXACT COLAB LOGIC)
+# --------------------------------------------------
+def dpd_penalty(dpd):
+    if pd.isna(dpd): return 0
+    if dpd >= 90: return 40
+    if dpd >= 60: return 25
+    if dpd >= 30: return 15
+    if dpd > 0: return 5
+    return 0
+
+def sma_penalty(sma):
+    s = str(sma).upper()
+    return 25 if s == "SMA-2" else 15 if s == "SMA-1" else 0
+
+def npa_penalty(tag):
+    return 40 if str(tag).upper() == "YES" else 0
+
+
+# --------------------------------------------------
+# LOAN TYPE EWS (EXACT COLAB LOGIC)
+# --------------------------------------------------
+def score_behavior(v, good, mid, bad):
+    try: v = float(v)
+    except: v = mid
+    if v <= good: return 100
+    if v <= mid: return 70
+    if v <= bad: return 40
+    return 20
+
+def loan_ews(row):
+    loan = str(row.get("Loan Type", "")).upper()
+
+    wc = np.mean([
+        score_behavior(row.get("Credit Utilization (%)", 90), 70, 90, 110),
+        score_behavior(row.get("Bounced Cheques (Count)", 0), 0, 1, 2),
+        score_behavior(row.get("Overdrafts (Count)", 0), 0, 1, 2)
+    ])
+
+    tl = np.mean([
+        score_behavior(row.get("LTV Ratio", 70), 60, 70, 80),
+        score_behavior(row.get("Tenure (Months)", 60), 36, 60, 84)
+    ])
+
+    sl = np.mean([
+        score_behavior(row.get("Group Risk Level", 1), 1, 2, 3),
+        score_behavior(row.get("Cross-Bank NPA Tag", "No") == "Yes", 0, 1, 1)
+    ])
+
+    return wc if loan == "WORKING CAPITAL" else (tl if loan == "TERM LOAN" else sl)
+
+
+# --------------------------------------------------
+# MAIN ANALYSIS FUNCTION (USED BY UI)
+# --------------------------------------------------
 def analyze_company(df: pd.DataFrame, company: str):
 
     df = df.copy()
@@ -42,31 +98,46 @@ def analyze_company(df: pd.DataFrame, company: str):
     )
 
     # ---------------- LOAN TYPE EWS ----------------
-    df["Loan_Type_EWS"] = 70
+    df["Loan_Type_EWS"] = df.apply(loan_ews, axis=1)
 
-    # ---------------- FINANCIAL HEALTH ----------------
+    # ---------------- FINANCIAL HEALTH (EXACT COLAB) ----------------
     def scale(v, d, r):
         if pd.isna(v): v = d[1]
         return np.clip(np.interp(v, d, r), min(r), max(r))
 
     def compute_fh(r):
-        leverage = scale(r["Total Debt (₹ Crore)"]/(r["Net Worth (₹ Crore)"]+1e-6), [0,1,3], [100,80,40])
-        liquidity = scale(r["Current Ratio"], [0.5,1,2], [40,70,100])
-        coverage = scale(r["DSCR"], [0.8,1.2,2], [40,70,100])
-        profitability = np.mean([
-            scale(r["ROCE (%)"], [5,10,20], [40,70,100]),
-            scale(r["ROE (%)"], [5,10,20], [40,70,100])
-        ])
-        return np.clip(
-            0.35*leverage + 0.20*liquidity + 0.20*coverage +
-            0.15*profitability + 0.10*r["Loan_Type_EWS"], 0, 100
+        leverage = scale(
+            r["Total Debt (₹ Crore)"] / (r["Net Worth (₹ Crore)"] + 1e-6),
+            [0, 1, 3], [100, 80, 40]
         )
+        liquidity = scale(r["Current Ratio"], [0.5, 1, 2], [40, 70, 100])
+        coverage = scale(r["DSCR"], [0.8, 1.2, 2], [40, 70, 100])
+        profitability = np.mean([
+            scale(r["ROCE (%)"], [5, 10, 20], [40, 70, 100]),
+            scale(r["ROE (%)"], [5, 10, 20], [40, 70, 100])
+        ])
+
+        fh_raw = (
+            0.35 * leverage +
+            0.20 * liquidity +
+            0.20 * coverage +
+            0.15 * profitability +
+            0.10 * r["Loan_Type_EWS"]
+        )
+
+        penalty = (
+            dpd_penalty(r["Maximum DPD Observed"]) +
+            sma_penalty(r.get("SMA Classification")) +
+            npa_penalty(r.get("Cross-Bank NPA Tag"))
+        )
+
+        return np.clip(fh_raw - penalty, 0, 100)
 
     df["FH_Score"] = df.apply(compute_fh, axis=1)
 
     # ---------------- TRENDS ----------------
-    df = df.sort_values(["Company Name","FY"])
-    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"]/(df["Turnover (₹ Crore)"]+1e-6)
+    df = df.sort_values(["Company Name", "FY"])
+    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"] / (df["Turnover (₹ Crore)"] + 1e-6)
     df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
     df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
         lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
@@ -77,9 +148,9 @@ def analyze_company(df: pd.DataFrame, company: str):
     train = df.dropna(subset=["FH_Next"])
 
     FEATURES = [
-        "FH_Score","Trend_Slope","Growth_1Y",
-        "EBITDA_Margin","Loan_Type_EWS",
-        "Document_Score","Maximum DPD Observed"
+        "FH_Score", "Trend_Slope", "Growth_1Y",
+        "EBITDA_Margin", "Loan_Type_EWS",
+        "Document_Score", "Maximum DPD Observed"
     ]
 
     pipe = Pipeline([
@@ -91,14 +162,13 @@ def analyze_company(df: pd.DataFrame, company: str):
 
     h = df[df["Company Name"].str.lower() == company.lower()]
     last = h.iloc[-1]
-
     forecast = pipe.predict(pd.DataFrame([last[FEATURES]]))[0]
 
     return {
         "fh_score": round(last["FH_Score"], 2),
-        "history": h[["FY","FH_Score"]],
+        "history": h[["FY", "FH_Score"]],
         "forecast": round(float(forecast), 2),
-        "ebitda": h[["FY","EBITDA_Margin"]],
-        "growth": h[["FY","Growth_1Y"]],
+        "ebitda": h[["FY", "EBITDA_Margin"]],
+        "growth": h[["FY", "Growth_1Y"]],
         "latest": last
     }

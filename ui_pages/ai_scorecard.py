@@ -25,8 +25,8 @@ def render_ai_scorecard():
     st.subheader("📂 Data Source")
     st.caption("Data is loaded directly from the GitHub repository")
 
-    MASTER_PATH = "data/master_data.xlsx"
-    INPUT_PATH  = "data/input_data.xlsx"
+    MASTER_PATH = "data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx"
+    INPUT_PATH  = "data/2companies.xlsx"
 
     # ---------------- MASTER DATA ----------------
     try:

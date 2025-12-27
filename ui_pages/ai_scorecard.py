@@ -14,12 +14,7 @@ def style_timeseries(ax, title):
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     ax.tick_params(axis="both", labelsize=8)
     ax.grid(alpha=0.3)
-
-    # ✅ Only show legend if labels exist (removes warning)
-    handles, labels = ax.get_legend_handles_labels()
-    if labels:
-        ax.legend(fontsize=8)
-
+    ax.legend(fontsize=8)
     plt.tight_layout(pad=0.8)
 
 
@@ -125,7 +120,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 📈 FH SCORE + 3Y FORECAST
+    # 📈 FH SCORE + 3Y FORECAST (COMPACT UI)
     # --------------------------------------------------
     hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
@@ -146,53 +141,92 @@ def render_ai_scorecard():
             "--s", linewidth=2, label="Forecast (3Y)"
         )
         style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
-        st.pyplot(fig, width="stretch")
+        st.pyplot(fig, use_container_width=True)
 
     st.divider()
 
     # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS (FIXED + COLOR-CODED)
+    # 📈 REVENUE & EBITDA
+    # --------------------------------------------------
+    c1, c2 = st.columns(2)
+
+    with c1:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o", linewidth=2)
+        style_timeseries(ax, "Revenue Growth (YoY %)")
+        st.pyplot(fig)
+
+    with c2:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s", linewidth=2)
+        style_timeseries(ax, "EBITDA Margin (%)")
+        st.pyplot(fig)
+
+    st.divider()
+
+    # --------------------------------------------------
+    # 🔍 KEY RISK DRIVERS (FIXED)
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
-        ("DSCR Ratio", score_to_impact(last.get("DSCR"), 1.5, 0.9, 8)),
-        ("Debt–Equity Ratio", score_to_impact(
-            last.get("Net Worth (₹ Crore)", 0) / (last.get("Total Debt (₹ Crore)", 0) + 1e-6),
-            0.6, 0.25, 6
-        )),
-        ("Current Ratio", score_to_impact(last.get("Current Ratio"), 1.5, 1.0, 5)),
-        ("EBITDA Margin", score_to_impact(last.get("EBITDA_Margin", 0) * 100, 20, 5, 4)),
-        ("Revenue Growth (YoY)", score_to_impact(
-            last.get("Growth_1Y") * 100 if pd.notna(last.get("Growth_1Y")) else None,
-            10, -5, 3
-        )),
+        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
+        ("Debt–Equity Ratio",
+         score_to_impact(
+             last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
+             0.6, 0.25, 6)),
+        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
+        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
+        ("Revenue Growth (YoY)",
+         score_to_impact(
+             last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
+             10, -5, 3))
     ]
 
     for name, val in drivers:
         c1, c2 = st.columns([2, 6])
-
         with c1:
             st.write(name)
-
         with c2:
             st.progress(min(abs(val) / 8, 1.0))
-
             if val == 0:
-                st.markdown(
-                    "<span style='color:#2ca02c;font-weight:600'>✔ No risk impact</span>",
-                    unsafe_allow_html=True
-                )
-            elif val < 0:
-                st.markdown(
-                    f"<span style='color:#d62728;font-weight:600'>✖ {val:+.1f} points</span>",
-                    unsafe_allow_html=True
-                )
+                st.caption("No risk impact")
             else:
-                st.markdown(
-                    f"<span style='color:#2ca02c;font-weight:600'>▲ {val:+.1f} points</span>",
-                    unsafe_allow_html=True
-                )
+                st.caption(f"{val:+.1f}")
+
+    st.divider()
+
+    # --------------------------------------------------
+    # 📋 RISK ASSESSMENT SUMMARY (NOW FUNCTIONAL)
+    # --------------------------------------------------
+    st.markdown("### 📋 Risk Assessment Summary")
+
+    positive_factors = []
+    risk_concerns = []
+
+    for name, val in drivers:
+        if val <= -1:
+            risk_concerns.append(f"❌ {name}: {val:+.1f} points")
+        elif val == 0:
+            positive_factors.append(f"✅ {name}: No risk impact")
+
+    r1, r2 = st.columns(2)
+
+    with r1:
+        st.markdown("**Positive Factors**")
+        if positive_factors:
+            for p in positive_factors:
+                st.write(p)
+        else:
+            st.write("• None identified")
+
+    with r2:
+        st.markdown("**Risk Concerns**")
+        if risk_concerns:
+            for r in risk_concerns:
+                st.write(r)
+        else:
+            st.write("• No material concerns")
 
     st.divider()
 

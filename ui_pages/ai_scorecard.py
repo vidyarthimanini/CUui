@@ -80,7 +80,7 @@ def render_ai_scorecard():
     # --------------------------------------------------
     # LOAD DATA
     # --------------------------------------------------
-    df = pd.read_excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
+    df = pd.read_excel("data/2companies.xlsx")
     company = st.selectbox("Select Company", df["Company Name"].dropna().unique())
 
     if st.button("▶ Run AI Model"):

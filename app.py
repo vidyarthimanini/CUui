@@ -73,4 +73,4 @@ elif page == "AI Scorecard":
     render_ai_scorecard()
 elif page == "Tools":
     st.info("Tools page (to be implemented)")
-this is my app code this is one of the ui pages i am using 
+

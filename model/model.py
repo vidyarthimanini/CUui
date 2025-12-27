@@ -1,0 +1,115 @@
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+# ---------------------------
+# SAFE NUMERIC PARSER
+# ---------------------------
+def num(x):
+    try:
+        return float(str(x).replace(",", "").replace("₹", ""))
+    except:
+        return np.nan
+
+
+# ---------------------------
+# PREPARE DATA
+# ---------------------------
+def prepare_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df.columns = [c.strip() for c in df.columns]
+
+    df["FY"] = pd.to_numeric(df["FY"], errors="coerce")
+    df = df.dropna(subset=["Company Name", "FY"])
+
+    num_cols = [
+        "Turnover (₹ Crore)", "EBITDA (₹ Crore)", "Net Profit (₹ Crore)",
+        "Net Worth (₹ Crore)", "Total Debt (₹ Crore)",
+        "DSCR", "Current Ratio", "ROCE (%)", "ROE (%)",
+        "Credit Utilization (%)", "Loan Amount",
+        "Collateral Value", "LTV Ratio", "Maximum DPD Observed"
+    ]
+
+    for c in num_cols:
+        if c in df.columns:
+            df[c] = df[c].apply(num)
+
+    # Document score
+    doc_cols = [c for c in df.columns if c.endswith("Uploaded")]
+    df["Document_Score"] = (
+        df[doc_cols].astype(str)
+        .apply(lambda x: x.str.lower().str.contains("yes|true|uploaded"))
+        .mean(axis=1) * 100
+    ) if doc_cols else 50
+
+    return df
+
+
+# ---------------------------
+# FINANCIAL HEALTH SCORE
+# ---------------------------
+def scale(v, d, r):
+    if pd.isna(v): v = d[1]
+    return np.clip(np.interp(v, d, r), min(r), max(r))
+
+
+def compute_fh(row):
+    leverage = scale(
+        row["Total Debt (₹ Crore)"] / (row["Net Worth (₹ Crore)"] + 1e-6),
+        [0, 1, 3], [100, 80, 40]
+    )
+    liquidity = scale(row["Current Ratio"], [0.5, 1, 2], [40, 70, 100])
+    coverage = scale(row["DSCR"], [0.8, 1.2, 2], [40, 70, 100])
+    profitability = np.mean([
+        scale(row["ROCE (%)"], [5, 10, 20], [40, 70, 100]),
+        scale(row["ROE (%)"], [5, 10, 20], [40, 70, 100])
+    ])
+
+    penalty = (
+        40 if row["Maximum DPD Observed"] >= 90 else
+        25 if row["Maximum DPD Observed"] >= 60 else
+        15 if row["Maximum DPD Observed"] >= 30 else 0
+    )
+
+    return np.clip(
+        0.35 * leverage +
+        0.20 * liquidity +
+        0.20 * coverage +
+        0.15 * profitability +
+        0.10 * row["Document_Score"] - penalty,
+        0, 100
+    )
+
+
+# ---------------------------
+# TRAIN + PREDICT
+# ---------------------------
+def run_model(df: pd.DataFrame):
+    df = prepare_dataframe(df)
+
+    df["FH_Score"] = df.apply(compute_fh, axis=1)
+    df = df.sort_values(["Company Name", "FY"])
+
+    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"] / (df["Turnover (₹ Crore)"] + 1e-6)
+    df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
+    df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
+        lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
+    )
+
+    df["FH_Next"] = df.groupby("Company Name")["FH_Score"].shift(-1)
+    train = df.dropna(subset=["FH_Next"])
+
+    FEATURES = [
+        "FH_Score", "Trend_Slope", "Growth_1Y",
+        "EBITDA_Margin", "Document_Score", "Maximum DPD Observed"
+    ]
+
+    pipe = Pipeline([
+        ("imp", SimpleImputer(strategy="median")),
+        ("model", Ridge(alpha=1.2))
+    ])
+    pipe.fit(train[FEATURES], train["FH_Next"])
+
+    return df, pipe, FEATURES

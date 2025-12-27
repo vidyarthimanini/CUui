@@ -122,7 +122,7 @@ def render_financial_data():
         st.write("DSCR Status:", "🟥 Poor" if dscr < 1 else "🟩 Healthy")
         st.write("Liquidity:", "🟥 Weak" if current_ratio < 1 else "🟩 Adequate")
 
-    # ---------- CAGR (TURNOVER FY21–FY23) ----------
+    # ---------- CAGR (TURNOVER FY22–FY24) ----------
     st.markdown("### 📈 Growth Indicators (Turnover)")
 
     def calc_cagr(start, end, years=2):
@@ -130,13 +130,13 @@ def render_financial_data():
             return ((end / start) ** (1 / years) - 1) * 100
         return None
 
-    fy21 = st.session_state.financials["FY 2022"].get("turnover")
-    fy23 = st.session_state.financials["FY 2024"].get("turnover")
+    fy22 = st.session_state.financials["FY 2022"].get("turnover")
+    fy24 = st.session_state.financials["FY 2024"].get("turnover")
 
     cagr = calc_cagr(fy22, fy24)
 
     c1, c2 = st.columns(2)
-    c1.metric("Turnover CAGR (FY21–FY23)", f"{cagr:.2f}%" if cagr else "N/A")
+    c1.metric("Turnover CAGR (FY22–FY24)", f"{cagr:.2f}%" if cagr else "N/A")
     c2.metric("Growth Trend", "🟩 Positive" if cagr and cagr > 0 else "🟥 Negative" if cagr else "N/A")
 
     # ---------- 3-YEAR COMPARISON ----------

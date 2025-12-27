@@ -1,7 +1,9 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
+
 from model.run_model import run_model
+
+
+
+def render_ai_scorecard():
 st.subheader("📂 Run Model")
 
 uploaded = st.file_uploader("Upload Excel (2 companies)", type=["xlsx"])
@@ -17,10 +19,6 @@ if uploaded:
             result = run_model(uploaded, selected_company)
             st.session_state["MODEL_RESULT"] = result
             st.success("Model executed successfully")
-
-
-def render_ai_scorecard():
-
     st.markdown("## 🤖 AI Model Feedback & Scorecard")
     st.divider()
 

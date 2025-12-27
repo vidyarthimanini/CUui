@@ -1,176 +1,89 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import io
-import plotly.graph_objects as go
 
-from sklearn.linear_model import Ridge
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
+# -------------------------------------------------
+# SAFE PLOTLY IMPORT (CRITICAL)
+# -------------------------------------------------
+try:
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
-# ============================================================
-# PAGE CONFIG
-# ============================================================
-st.set_page_config(
-    page_title="Corporate Credit Underwriting",
-    layout="wide"
-)
 
-st.title("📊 Corporate Credit Risk Assessment Platform")
+# -------------------------------------------------
+# MAIN RENDER FUNCTION
+# -------------------------------------------------
+def render_ai_scorecard():
 
-# ============================================================
-# FILE UPLOAD (DYNAMIC)
-# ============================================================
-uploaded_file = st.file_uploader(
-    "📥 Upload Excel File (2 Company Profiles)",
-    type=["xlsx"]
-)
+    st.markdown("## 🤖 AI Model Feedback & Scorecard")
+    st.caption("Explainable credit risk assessment using ML & business logic")
+    st.divider()
 
-if uploaded_file is None:
-    st.info("Upload an Excel file to begin.")
-    st.stop()
-
-# ============================================================
-# BACKEND ENGINE (UNCHANGED LOGIC)
-# ============================================================
-@st.cache_data
-def load_and_engineer_data(uploaded):
-
-    df = pd.read_excel(uploaded)
-    df.columns = [c.strip() for c in df.columns]
-
-    df["FY"] = pd.to_numeric(df["FY"], errors="coerce")
-    df = df.dropna(subset=["Company Name", "FY"])
-
-    def num(x):
-        try:
-            return float(str(x).replace(",", "").replace("₹", ""))
-        except:
-            return np.nan
-
-    num_cols = [
-        "Turnover (₹ Crore)","EBITDA (₹ Crore)","Net Profit (₹ Crore)",
-        "Net Worth (₹ Crore)","Total Debt (₹ Crore)",
-        "DSCR","Current Ratio","ROCE (%)","ROE (%)",
-        "Credit Utilization (%)","Loan Amount","Collateral Value",
-        "LTV Ratio","Maximum DPD Observed"
+    # -------------------------------------------------
+    # SAFETY CHECK — REQUIRED DATA
+    # -------------------------------------------------
+    required_keys = [
+        "ENGINEERED_DF",
+        "MODEL",
+        "FEATURES",
+        "FEATURE_MEANS",
+        "FEATURE_STDS"
     ]
 
-    for c in num_cols:
-        if c in df.columns:
-            df[c] = df[c].apply(num)
+    for k in required_keys:
+        if k not in st.session_state:
+            st.warning("Please complete earlier sections before viewing AI Scorecard.")
+            return
 
-    doc_cols = [c for c in df.columns if c.endswith("Uploaded")]
-    df["Document_Score"] = (
-        df[doc_cols].astype(str)
-        .apply(lambda x: x.str.lower().str.contains("yes|true|uploaded"))
-        .mean(axis=1) * 100
+    df = st.session_state["ENGINEERED_DF"]
+    model = st.session_state["MODEL"]
+    FEATURES = st.session_state["FEATURES"]
+    means = st.session_state["FEATURE_MEANS"]
+    stds = st.session_state["FEATURE_STDS"]
+
+    # -------------------------------------------------
+    # COMPANY SELECTION
+    # -------------------------------------------------
+    companies = sorted(df["Company Name"].dropna().unique())
+
+    company = st.selectbox(
+        "Select Company for AI Analysis",
+        companies,
+        key="ai_company"
     )
 
-    def score_behavior(v, good, mid, bad):
-        try: v = float(v)
-        except: v = mid
-        if v <= good: return 100
-        if v <= mid: return 70
-        if v <= bad: return 40
-        return 20
-
-    def loan_ews(row):
-        loan = str(row.get("Loan Type","")).upper()
-        wc = np.mean([
-            score_behavior(row.get("Credit Utilization (%)",90),70,90,110),
-            score_behavior(row.get("Bounced Cheques (Count)",0),0,1,2),
-            score_behavior(row.get("Overdrafts (Count)",0),0,1,2)
-        ])
-        tl = np.mean([
-            score_behavior(row.get("LTV Ratio",70),60,70,80),
-            score_behavior(row.get("Tenure (Months)",60),36,60,84)
-        ])
-        return wc if loan=="WORKING CAPITAL" else tl
-
-    df["Loan_Type_EWS"] = df.apply(loan_ews, axis=1)
-
-    def scale(v, d, r):
-        if pd.isna(v): v = d[1]
-        return np.clip(np.interp(v, d, r), min(r), max(r))
-
-    def compute_fh(r):
-        leverage = scale(
-            r["Total Debt (₹ Crore)"]/(r["Net Worth (₹ Crore)"]+1e-6),
-            [0,1,3],[100,80,40]
-        )
-        liquidity = scale(r["Current Ratio"],[0.5,1,2],[40,70,100])
-        coverage = scale(r["DSCR"],[0.8,1.2,2],[40,70,100])
-        profitability = np.mean([
-            scale(r["ROCE (%)"],[5,10,20],[40,70,100]),
-            scale(r["ROE (%)"],[5,10,20],[40,70,100])
-        ])
-
-        return np.clip(
-            0.35*leverage +
-            0.20*liquidity +
-            0.20*coverage +
-            0.15*profitability +
-            0.10*r["Loan_Type_EWS"],
-            0,100
-        )
-
-    df["FH_Score"] = df.apply(compute_fh, axis=1)
-
-    df = df.sort_values(["Company Name","FY"])
-    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"]/(df["Turnover (₹ Crore)"]+1e-6)
-    df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
-    df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
-        lambda x: np.polyfit(range(len(x)),x,1)[0] if len(x)>1 else 0
-    )
-
-    return df
-
-
-df = load_and_engineer_data(uploaded_file)
-
-# ============================================================
-# TRAIN MODEL ON BOTH COMPANIES
-# ============================================================
-FEATURES = [
-    "FH_Score","Trend_Slope","Growth_1Y",
-    "EBITDA_Margin","Loan_Type_EWS","Document_Score"
-]
-
-df["FH_Next"] = df.groupby("Company Name")["FH_Score"].shift(-1)
-train = df.dropna(subset=["FH_Next"])
-
-pipe = Pipeline([
-    ("imp", SimpleImputer(strategy="median")),
-    ("model", Ridge(alpha=1.2))
-])
-
-pipe.fit(train[FEATURES], train["FH_Next"])
-
-means = train[FEATURES].mean()
-stds = train[FEATURES].std().replace(0,1)
-
-# ============================================================
-# COMPANY DROPDOWNS (DYNAMIC)
-# ============================================================
-companies = sorted(df["Company Name"].unique())
-
-colA, colB = st.columns(2)
-with colA:
-    company_a = st.selectbox("Select Company A", companies, key="A")
-with colB:
-    company_b = st.selectbox("Select Company B", companies, index=1, key="B")
-
-# ============================================================
-# DASHBOARD RENDER FUNCTION
-# ============================================================
-def render_company(company):
-
-    row = df[df["Company Name"]==company].iloc[-1]
+    row = df[df["Company Name"] == company].iloc[-1]
     X = row[FEATURES]
-    fh_ml = pipe.predict(pd.DataFrame([X]))[0]
 
-    coef = pipe.named_steps["model"].coef_
+    # -------------------------------------------------
+    # MODEL PREDICTION
+    # -------------------------------------------------
+    fh_pred = model.predict(pd.DataFrame([X]))[0]
+
+    if fh_pred >= 75:
+        risk_band = "Low"
+    elif fh_pred >= 50:
+        risk_band = "Moderate"
+    else:
+        risk_band = "High"
+
+    # -------------------------------------------------
+    # SCORECARD UI
+    # -------------------------------------------------
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("FH Score (Formula)", f"{row['FH_Score']:.2f}")
+    col2.metric("FH Score (AI)", f"{fh_pred:.2f}")
+    col3.metric("Risk Band", risk_band)
+
+    st.divider()
+
+    # -------------------------------------------------
+    # SHAP-STYLE LINEAR IMPACT
+    # -------------------------------------------------
+    coef = model.coef_
     z = (X - means) / stds
     impacts = z * coef
 
@@ -179,47 +92,83 @@ def render_company(company):
         "Impact": impacts.values
     })
 
-    return row, fh_ml, shap_df
+    # -------------------------------------------------
+    # BUSINESS DRIVER MAPPING
+    # -------------------------------------------------
+    BUSINESS_DRIVERS = {
+        "DSCR": "DSCR Ratio",
+        "Current Ratio": "Current Ratio",
+        "FH_Score": "Debt–Equity Ratio",
+        "EBITDA_Margin": "EBITDA Margin",
+        "Growth_1Y": "Revenue Growth (YoY)",
+        "Loan_Type_EWS": "Banking Conduct",
+        "Document_Score": "Industry Risk"
+    }
 
-# ============================================================
-# SIDE-BY-SIDE DASHBOARD
-# ============================================================
-st.markdown("## 🏢 Company Comparison Dashboard")
+    driver_rows = []
 
-left, right = st.columns(2)
+    for key, label in BUSINESS_DRIVERS.items():
+        match = shap_df[shap_df["Feature"].str.contains(key, case=False)]
+        impact = match["Impact"].sum() if not match.empty else 0.0
 
-with left:
-    row_a, fh_a, shap_a = render_company(company_a)
-    st.subheader(company_a)
-    st.metric("FH Score (Formula)", f"{row_a['FH_Score']:.2f}")
-    st.metric("FH Score (ML)", f"{fh_a:.2f}")
+        driver_rows.append({
+            "Driver": label,
+            "Impact": round(float(impact), 2)
+        })
 
-with right:
-    row_b, fh_b, shap_b = render_company(company_b)
-    st.subheader(company_b)
-    st.metric("FH Score (Formula)", f"{row_b['FH_Score']:.2f}")
-    st.metric("FH Score (ML)", f"{fh_b:.2f}")
+    driver_df = pd.DataFrame(driver_rows)
 
-# ============================================================
-# FINAL DECISION
-# ============================================================
-st.markdown("## 🧾 Final Result")
+    # -------------------------------------------------
+    # POSITIVE / NEGATIVE FACTORS
+    # -------------------------------------------------
+    pos = driver_df[driver_df["Impact"] > 0]
+    neg = driver_df[driver_df["Impact"] < 0]
 
-if fh_a > fh_b:
-    st.success(f"**{company_a}** has a stronger credit profile than **{company_b}**.")
-elif fh_b > fh_a:
-    st.success(f"**{company_b}** has a stronger credit profile than **{company_a}**.")
-else:
-    st.info("Both companies exhibit similar risk profiles.")
+    cpos, cneg = st.columns(2)
 
-# ============================================================
-# EXPORT
-# ============================================================
-output = io.BytesIO()
-df.to_excel(output, index=False)
+    with cpos:
+        st.markdown("### ✅ Positive Factors")
+        if pos.empty:
+            st.write("• None")
+        for _, r in pos.iterrows():
+            st.write(f"• **{r['Driver']}**  +{r['Impact']}")
 
-st.download_button(
-    "📥 Download Comparison Report",
-    output.getvalue(),
-    file_name="Two_Company_Credit_Comparison.xlsx"
-)
+    with cneg:
+        st.markdown("### ❌ Risk Concerns")
+        if neg.empty:
+            st.write("• No material concerns")
+        for _, r in neg.iterrows():
+            st.write(f"• **{r['Driver']}**  {r['Impact']}")
+
+    st.divider()
+
+    # -------------------------------------------------
+    # SHAP BAR CHART (OPTIONAL)
+    # -------------------------------------------------
+    st.markdown("### 📉 Key Risk Drivers")
+
+    if not PLOTLY_AVAILABLE:
+        st.warning("Charts unavailable (Plotly not installed).")
+        st.dataframe(driver_df)
+        return
+
+    colors = ["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]]
+
+    fig = go.Figure()
+    fig.add_bar(
+        x=driver_df["Impact"],
+        y=driver_df["Driver"],
+        orientation="h",
+        marker_color=colors,
+        text=driver_df["Impact"],
+        textposition="auto"
+    )
+
+    fig.update_layout(
+        height=350,
+        title="Explainable AI – Risk Driver Impact",
+        xaxis_title="Impact on FH Score",
+        margin=dict(l=80, r=40, t=60, b=40)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)

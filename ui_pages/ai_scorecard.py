@@ -24,24 +24,18 @@ def render_ai_scorecard():
     # -------------------------------------------------
     # SAFETY CHECK — REQUIRED DATA
     # -------------------------------------------------
-    required_keys = [
-        "ENGINEERED_DF",
-        "MODEL",
-        "FEATURES",
-        "FEATURE_MEANS",
-        "FEATURE_STDS"
-    ]
+        # -------------------------------------------------
+    # SAFE DATA ACCESS (NO HARD STOP)
+    # -------------------------------------------------
+    df = st.session_state.get("ENGINEERED_DF")
+    model = st.session_state.get("MODEL")
+    FEATURES = st.session_state.get("FEATURES")
+    means = st.session_state.get("FEATURE_MEANS")
+    stds = st.session_state.get("FEATURE_STDS")
 
-    for k in required_keys:
-        if k not in st.session_state:
-            st.warning("Please complete earlier sections before viewing AI Scorecard.")
-            return
-
-    df = st.session_state["ENGINEERED_DF"]
-    model = st.session_state["MODEL"]
-    FEATURES = st.session_state["FEATURES"]
-    means = st.session_state["FEATURE_MEANS"]
-    stds = st.session_state["FEATURE_STDS"]
+    if df is None or model is None or FEATURES is None:
+        st.info("ℹ️ AI Scorecard is waiting for model & data. Showing placeholder view.")
+        st.stop()
 
     # -------------------------------------------------
     # COMPANY SELECTION

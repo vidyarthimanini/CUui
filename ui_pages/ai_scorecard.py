@@ -1,229 +1,264 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import io
+import plotly.graph_objects as go
 
-def score_to_impact(value, good, bad, max_impact):
-    if value is None:
-        return 0.0
-    try:
-        value = float(value)
-    except:
-        return 0.0
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 
-    if value >= good:
-        return 0.0
-    if value <= bad:
-        return -max_impact
-    return -max_impact * (good - value) / (good - bad)
+# ============================================================
+# PAGE CONFIG
+# ============================================================
+st.set_page_config(
+    page_title="Corporate Credit Underwriting",
+    layout="wide"
+)
 
+st.title("📊 Corporate Credit Risk Assessment Platform")
 
-def render_ai_scorecard(calculating=False):
-    st.markdown("## 🤖 AI Model Feedback & Scorecard")
+# ============================================================
+# LOAD DATA (BACKEND INTEGRATION)
+# ============================================================
+@st.cache_data
+def load_and_engineer_data(file_path):
 
-    # -----------------------------------
-    # HEADER ACTIONS
-    # -----------------------------------
-    top_l, top_r = st.columns([4, 1])
-    with top_r:
-        if calculating:
-            st.button("⏳ Calculating...", disabled=True)
-        else:
-            st.button("🔄 Recalculate Score")
+    df = pd.read_excel(file_path)
+    df.columns = [c.strip() for c in df.columns]
 
-    st.divider()
+    df["FY"] = pd.to_numeric(df["FY"], errors="coerce")
+    df = df.dropna(subset=["Company Name", "FY"])
 
-    # -----------------------------------
-    # CALCULATING STATE
-    # -----------------------------------
-    if calculating:
-        st.markdown("### AI Model Processing")
-        st.caption("Analyzing financial data and risk factors...")
-        st.progress(0.65)
-        st.divider()
+    def num(x):
+        try:
+            return float(str(x).replace(",", "").replace("₹", ""))
+        except:
+            return np.nan
 
-    # -----------------------------------
-    # SCORE + RISK BAND
-    # -----------------------------------
-    left, right = st.columns([1, 2])
-
-    with left:
-        st.markdown(
-            """
-            <div style="background:#f3f4ff;padding:30px;border-radius:12px;text-align:center">
-                <h1 style="color:#5b5ff2;margin-bottom:0">30</h1>
-                <p>Risk Score</p>
-                <span style="color:#d9534f;font-weight:600">SB13 · Poor</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with right:
-        st.markdown("### Risk Band Classification")
-
-        bands = [
-            ("SB1", "Excellent", "90–100"),
-            ("SB2", "Very Good", "85–89"),
-            ("SB3", "Good", "80–84"),
-            ("SB4", "Good", "75–79"),
-            ("SB5", "Satisfactory", "70–74"),
-            ("SB6", "Satisfactory", "65–69"),
-            ("SB7", "Acceptable", "60–64"),
-            ("SB8", "Acceptable", "55–59"),
-        ]
-
-        for b, label, rng in bands:
-            st.markdown(
-                f"**{b}** — {label} <span style='float:right;color:gray'>{rng}</span>",
-                unsafe_allow_html=True
-            )
-
-        st.markdown("<small><a href='#'>View All Risk Bands (SB9–SB16)</a></small>",
-                    unsafe_allow_html=True)
-
-    st.divider()
-
-    # -----------------------------------
-    # DECISION
-    # -----------------------------------
-    st.markdown(
-        """
-        <div style="background:#fff1f0;padding:20px;border-radius:12px">
-            <h4 style="color:#d9534f">Decision Recommendation</h4>
-            <h2>Reject</h2>
-            <p>Application does not meet minimum risk criteria for approval.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.divider()
-
-    # -----------------------------------
-    # 🔍 DYNAMIC SHAP DRIVERS
-    # -----------------------------------
-    st.markdown("### 🔍 Key Risk Drivers (SHAP Analysis)")
-
-    financials = st.session_state.get("financials", {})
-    banking = st.session_state.get("banking_conduct", {})
-    assessment = st.session_state.get("assessment", {})
-
-    dscr = financials.get("dscr")
-    current_ratio = financials.get("current_ratio")
-    debt_equity = financials.get("debt_equity")
-    ebitda_margin = financials.get("ebitda_margin")
-    revenue_growth = financials.get("revenue_growth_yoy")
-
-    dscr_impact = score_to_impact(dscr, good=1.5, bad=0.9, max_impact=8)
-    cr_impact = score_to_impact(current_ratio, good=1.5, bad=1.0, max_impact=5)
-
-    de_impact = score_to_impact(
-        (1 / debt_equity) if debt_equity and debt_equity > 0 else None,
-        good=0.6, bad=0.25, max_impact=4
-    )
-
-    ebitda_impact = score_to_impact(ebitda_margin, good=20, bad=5, max_impact=4)
-    growth_impact = score_to_impact(revenue_growth, good=10, bad=-5, max_impact=3)
-
-    banking_score = 0
-    banking_score += 2 if banking.get("max_dpd_entity", 0) > 60 else 0
-    banking_score += 2 if banking.get("dpd60_12m", 0) > 0 else 0
-    banking_score += 1.5 if banking.get("bounced", 0) > 1 else 0
-    banking_score += 1 if banking.get("gst_compliance") == "Irregular" else 0
-    banking_score += 1 if banking.get("cross_bank_npa") == "Yes" else 0
-
-    banking_impact = -min(banking_score, 8)
-
-    industry_map = {"Low": -1, "Medium": -3, "High": -5}
-    industry_impact = industry_map.get(assessment.get("industry_risk"), 0)
-
-    drivers = [
-        ("DSCR Ratio", dscr_impact),
-        ("Banking Conduct", banking_impact),
-        ("Industry Risk", industry_impact),
-        ("Debt–Equity Ratio", de_impact),
-        ("Current Ratio", cr_impact),
-        ("EBITDA Margin", ebitda_impact),
-        ("Revenue Growth (YoY)", growth_impact),
+    num_cols = [
+        "Turnover (₹ Crore)","EBITDA (₹ Crore)","Net Profit (₹ Crore)",
+        "Net Worth (₹ Crore)","Total Debt (₹ Crore)",
+        "DSCR","Current Ratio","ROCE (%)","ROE (%)",
+        "Credit Utilization (%)","Loan Amount","Collateral Value",
+        "LTV Ratio","Maximum DPD Observed"
     ]
 
-    for name, val in drivers:
-        c1, c2 = st.columns([2, 6])
-        with c1:
-            st.write(name)
-        with c2:
-            st.progress(min(abs(val) / 8, 1.0))
-            st.caption(f"{val:+.1f}")
+    for c in num_cols:
+        if c in df.columns:
+            df[c] = df[c].apply(num)
 
-    st.divider()
-    # -----------------------------------
-    # 📋 DYNAMIC RISK SUMMARY
-    # -----------------------------------
-    st.markdown("### 📋 Risk Assessment Summary")
+    doc_cols = [c for c in df.columns if c.endswith("Uploaded")]
+    df["Document_Score"] = (
+        df[doc_cols].astype(str)
+        .apply(lambda x: x.str.lower().str.contains("yes|true|uploaded"))
+        .mean(axis=1) * 100
+    )
 
-    positive_factors = []
-    risk_concerns = []
+    def score_behavior(v, good, mid, bad):
+        try: v = float(v)
+        except: v = mid
+        if v <= good: return 100
+        if v <= mid: return 70
+        if v <= bad: return 40
+        return 20
 
-    for name, val in drivers:
-        if val <= -1.0:
-            risk_concerns.append(f"❌ {name}: {val:+.1f} points")
-        elif val > -0.5:
-            positive_factors.append(f"✅ {name}")
+    def loan_ews(row):
+        loan = str(row.get("Loan Type","")).upper()
+        wc = np.mean([
+            score_behavior(row.get("Credit Utilization (%)",90),70,90,110),
+            score_behavior(row.get("Bounced Cheques (Count)",0),0,1,2),
+            score_behavior(row.get("Overdrafts (Count)",0),0,1,2)
+        ])
+        tl = np.mean([
+            score_behavior(row.get("LTV Ratio",70),60,70,80),
+            score_behavior(row.get("Tenure (Months)",60),36,60,84)
+        ])
+        return wc if loan=="WORKING CAPITAL" else tl
 
-    r1, r2 = st.columns(2)
+    df["Loan_Type_EWS"] = df.apply(loan_ews, axis=1)
 
-    with r1:
-        st.markdown("**Positive Factors**")
-        if positive_factors:
-            for p in positive_factors:
-                st.write(p)
-        else:
-            st.write("• None identified")
+    def scale(v, d, r):
+        if pd.isna(v): v = d[1]
+        return np.clip(np.interp(v, d, r), min(r), max(r))
 
-    with r2:
-        st.markdown("**Risk Concerns**")
-        if risk_concerns:
-            for r in risk_concerns:
-                st.write(r)
-        else:
-            st.write("• No material concerns")
+    def compute_fh(r):
+        leverage = scale(
+            r["Total Debt (₹ Crore)"]/(r["Net Worth (₹ Crore)"]+1e-6),
+            [0,1,3],[100,80,40]
+        )
+        liquidity = scale(r["Current Ratio"],[0.5,1,2],[40,70,100])
+        coverage = scale(r["DSCR"],[0.8,1.2,2],[40,70,100])
+        profitability = np.mean([
+            scale(r["ROCE (%)"],[5,10,20],[40,70,100]),
+            scale(r["ROE (%)"],[5,10,20],[40,70,100])
+        ])
 
-    # -----------------------------------
-    # MODEL METRICS
-    # -----------------------------------
-    m1, m2, m3 = st.columns(3)
-
-    with m1:
-        st.markdown(
-            "<div style='background:#eef6ff;padding:20px;border-radius:12px;text-align:center'>"
-            "<h3>94.2%</h3><p>Model Accuracy</p></div>",
-            unsafe_allow_html=True
+        return np.clip(
+            0.35*leverage +
+            0.20*liquidity +
+            0.20*coverage +
+            0.15*profitability +
+            0.10*r["Loan_Type_EWS"],
+            0,100
         )
 
-    with m2:
-        st.markdown(
-            "<div style='background:#ecfdf3;padding:20px;border-radius:12px;text-align:center'>"
-            "<h3>0.89</h3><p>AUC Score</p></div>",
-            unsafe_allow_html=True
-        )
+    df["FH_Score"] = df.apply(compute_fh, axis=1)
 
-    with m3:
-        st.markdown(
-            "<div style='background:#f7f0ff;padding:20px;border-radius:12px;text-align:center'>"
-            "<h3>87.5%</h3><p>Precision Rate</p></div>",
-            unsafe_allow_html=True
-        )
+    df = df.sort_values(["Company Name","FY"])
+    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"]/(df["Turnover (₹ Crore)"]+1e-6)
+    df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
+    df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
+        lambda x: np.polyfit(range(len(x)),x,1)[0] if len(x)>1 else 0
+    )
 
-    st.divider()
+    return df
 
-    # -----------------------------------
-    # NAVIGATION
-    # -----------------------------------
-    nav1, nav2, nav3 = st.columns([1, 1, 1])
 
-    with nav1:
-        st.button("← Back to Documents")
+FILE_PATH = r"C:\Users\vidya\Downloads\Indian_Companies_EWS_READY_WITH_FY2025.xlsx"
+df = load_and_engineer_data(FILE_PATH)
 
-    with nav2:
-        st.button("⬇ Export Report")
+# ============================================================
+# TRAIN MODEL
+# ============================================================
+FEATURES = [
+    "FH_Score","Trend_Slope","Growth_1Y",
+    "EBITDA_Margin","Loan_Type_EWS","Document_Score"
+]
 
-    with nav3:
-        st.button("Continue to Tools →")
+df["FH_Next"] = df.groupby("Company Name")["FH_Score"].shift(-1)
+train = df.dropna(subset=["FH_Next"])
+
+X = train[FEATURES]
+y = train["FH_Next"]
+
+pipe = Pipeline([
+    ("imp", SimpleImputer(strategy="median")),
+    ("model", Ridge(alpha=1.2))
+])
+
+pipe.fit(X, y)
+
+feature_means = X.mean()
+feature_stds = X.std().replace(0,1)
+
+# ============================================================
+# UI — COMPANY SELECTION
+# ============================================================
+st.subheader("🏢 Company Dashboard")
+
+company = st.selectbox(
+    "Select a company",
+    sorted(df["Company Name"].unique())
+)
+
+row = df[df["Company Name"]==company].iloc[-1]
+X_row = row[FEATURES]
+
+fh_pred = pipe.predict(pd.DataFrame([X_row]))[0]
+
+# ============================================================
+# SCORE SUMMARY
+# ============================================================
+c1, c2, c3 = st.columns(3)
+c1.metric("FH Score (Formula)", f"{row['FH_Score']:.2f}")
+c2.metric("FH Score (ML)", f"{fh_pred:.2f}")
+c3.metric("Risk Band", "Low" if fh_pred>=75 else "Moderate" if fh_pred>=50 else "High")
+
+# ============================================================
+# SHAP-STYLE DRIVER ANALYSIS
+# ============================================================
+BUSINESS_DRIVERS = {
+    "DSCR": "DSCR Ratio",
+    "Loan_Type_EWS": "Banking Conduct",
+    "Document_Score": "Industry Risk",
+    "FH_Score": "Debt–Equity Ratio",
+    "EBITDA_Margin": "EBITDA Margin",
+    "Growth_1Y": "Revenue Growth (YoY)"
+}
+
+coef = pipe.named_steps["model"].coef_
+z = (X_row - feature_means) / feature_stds
+impacts = z * coef
+
+shap_df = pd.DataFrame({
+    "Feature": FEATURES,
+    "Impact": impacts.values
+})
+
+driver_rows = []
+for k, v in BUSINESS_DRIVERS.items():
+    m = shap_df[shap_df["Feature"].str.contains(k, case=False)]
+    driver_rows.append({
+        "Driver": v,
+        "Impact": round(m["Impact"].sum() if not m.empty else 0, 2)
+    })
+
+driver_df = pd.DataFrame(driver_rows)
+
+# ============================================================
+# RISK ASSESSMENT SUMMARY
+# ============================================================
+st.subheader("📋 Risk Assessment Summary")
+
+pos = driver_df[driver_df["Impact"]>0]
+neg = driver_df[driver_df["Impact"]<0]
+
+c1, c2 = st.columns(2)
+
+with c1:
+    st.write("#### ✅ Positive Factors")
+    if pos.empty:
+        st.write("• None")
+    for _, r in pos.iterrows():
+        st.write(f"• **{r['Driver']}**  +{r['Impact']}")
+
+with c2:
+    st.write("#### ❌ Risk Concerns")
+    if neg.empty:
+        st.write("• No material concerns")
+    for _, r in neg.iterrows():
+        st.write(f"• **{r['Driver']}**  {r['Impact']}")
+
+# ============================================================
+# SHAP BAR CHART
+# ============================================================
+fig = go.Figure()
+fig.add_bar(
+    x=driver_df["Impact"],
+    y=driver_df["Driver"],
+    orientation="h",
+    marker_color=["#dc2626" if v<0 else "#16a34a" for v in driver_df["Impact"]],
+    text=driver_df["Impact"],
+    textposition="auto"
+)
+
+fig.update_layout(
+    title="Key Risk Drivers (SHAP Analysis)",
+    height=350
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# ============================================================
+# EXPORT
+# ============================================================
+st.subheader("📥 Export Risk Report")
+
+export_df = pd.concat([
+    pd.DataFrame([{
+        "Company": company,
+        "FH Score (Formula)": row["FH_Score"],
+        "FH Score (ML)": fh_pred
+    }]),
+    driver_df
+], axis=1)
+
+buffer = io.BytesIO()
+export_df.to_excel(buffer, index=False)
+
+st.download_button(
+    "Download Risk Report",
+    buffer.getvalue(),
+    file_name=f"{company}_Risk_Report.xlsx"
+)

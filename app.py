@@ -13,7 +13,6 @@ st.set_page_config(
     page_title="Corporate Credit Underwriting",
     layout="wide"
 )
-
 # -------------------------------------------------
 # SIDEBAR NAVIGATION (BUTTON PANE)
 # -------------------------------------------------

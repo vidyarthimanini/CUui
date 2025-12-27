@@ -14,11 +14,7 @@ def style_timeseries(ax, title):
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     ax.tick_params(axis="both", labelsize=8)
     ax.grid(alpha=0.3)
-
-    handles, labels = ax.get_legend_handles_labels()
-    if labels:
-        ax.legend(fontsize=8)
-
+    ax.legend(fontsize=8)
     plt.tight_layout(pad=0.8)
 
 
@@ -88,14 +84,14 @@ def render_ai_scorecard():
     with right:
         st.markdown("### Risk Band Classification")
         for b, l, r in [
-            ("SB1", "Excellent", "90–100"),
-            ("SB2", "Very Good", "85–89"),
-            ("SB3", "Good", "80–84"),
-            ("SB4", "Good", "75–79"),
-            ("SB5", "Satisfactory", "70–74"),
-            ("SB6", "Satisfactory", "65–69"),
-            ("SB7", "Acceptable", "60–64"),
-            ("SB8", "Acceptable", "55–59"),
+            ("SB1","Excellent","90–100"),
+            ("SB2","Very Good","85–89"),
+            ("SB3","Good","80–84"),
+            ("SB4","Good","75–79"),
+            ("SB5","Satisfactory","70–74"),
+            ("SB6","Satisfactory","65–69"),
+            ("SB7","Acceptable","60–64"),
+            ("SB8","Acceptable","55–59"),
         ]:
             st.markdown(
                 f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
@@ -108,7 +104,7 @@ def render_ai_scorecard():
     # DECISION SUMMARY
     # --------------------------------------------------
     decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
-    color = "#ecfdf3" if decision == "Approve" else "#fff7e6" if decision == "Review" else "#fff1f0"
+    color = "#ecfdf3" if decision=="Approve" else "#fff7e6" if decision=="Review" else "#fff1f0"
 
     st.markdown(
         f"""
@@ -133,7 +129,11 @@ def render_ai_scorecard():
     last_score = hist_score[-1]
 
     forecast_years = [last_fy + i for i in range(1, 4)]
-    forecast_scores = list(res["forecast"]) if isinstance(res["forecast"], (list, tuple)) else [res["forecast"]] * 3
+    forecast_scores = (
+        list(res["forecast"])
+        if isinstance(res["forecast"], (list, tuple))
+        else [res["forecast"]] * 3
+    )
 
     _, mid, _ = st.columns([1, 3, 1])
     with mid:
@@ -150,56 +150,68 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS (CORRECT + COLORED)
+    # 📈 REVENUE & EBITDA
+    # --------------------------------------------------
+    c1, c2 = st.columns(2)
+
+    with c1:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o", linewidth=2)
+        style_timeseries(ax, "Revenue Growth (YoY %)")
+        st.pyplot(fig)
+
+    with c2:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s", linewidth=2)
+        style_timeseries(ax, "EBITDA Margin (%)")
+        st.pyplot(fig)
+
+    st.divider()
+
+    # --------------------------------------------------
+    # 🔍 KEY RISK DRIVERS — DYNAMIC COLORED BARS
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
-        ("DSCR Ratio", last.get("DSCR"), score_to_impact(last.get("DSCR"), 1.5, 0.9, 8)),
-        (
-            "Debt–Equity Ratio",
-            last.get("Total Debt (₹ Crore)", 0) / (last.get("Net Worth (₹ Crore)", 1e-6)),
-            score_to_impact(
-                last.get("Net Worth (₹ Crore)", 0) / (last.get("Total Debt (₹ Crore)", 0) + 1e-6),
-                0.6, 0.25, 6
-            )
-        ),
-        ("Current Ratio", last.get("Current Ratio"), score_to_impact(last.get("Current Ratio"), 1.5, 1.0, 5)),
-        ("EBITDA Margin (%)", last.get("EBITDA_Margin", 0) * 100, score_to_impact(last.get("EBITDA_Margin", 0) * 100, 20, 5, 4)),
-        (
-            "Revenue Growth (YoY %)",
-            last.get("Growth_1Y") * 100 if pd.notna(last.get("Growth_1Y")) else None,
-            score_to_impact(
-                last.get("Growth_1Y") * 100 if pd.notna(last.get("Growth_1Y")) else None,
-                10, -5, 3
-            )
-        ),
+        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
+        ("Debt–Equity Ratio",
+         score_to_impact(
+             last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
+             0.6, 0.25, 6)),
+        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
+        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
+        ("Revenue Growth (YoY)",
+         score_to_impact(
+             last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
+             10, -5, 3)),
     ]
 
-    for name, raw_val, impact in drivers:
+    for name, val in drivers:
         c1, c2 = st.columns([2, 6])
 
         with c1:
             st.write(name)
 
         with c2:
-            st.progress(min(abs(impact) / 8, 1.0))
+            width_pct = int(min(abs(val) / 8, 1.0) * 100)
 
-            if impact == 0:
-                st.markdown(
-                    f"<span style='color:#2ca02c;font-weight:600'>✔ {raw_val:.2f} — No risk impact</span>",
-                    unsafe_allow_html=True
-                )
-            elif impact < 0:
-                st.markdown(
-                    f"<span style='color:#d62728;font-weight:600'>✖ {raw_val:.2f} ({impact:+.1f} points)</span>",
-                    unsafe_allow_html=True
-                )
+            if val < 0:
+                bar_color = "#ef4444"   # red
+                label = f"✖ {val:+.1f} points"
             else:
-                st.markdown(
-                    f"<span style='color:#2ca02c;font-weight:600'>▲ {raw_val:.2f} ({impact:+.1f} points)</span>",
-                    unsafe_allow_html=True
-                )
+                bar_color = "#3b82f6"   # blue
+                label = f"✔ {val:+.1f} points"
+
+            st.markdown(
+                f"""
+                <div style="background:#e5e7eb;border-radius:6px;height:10px;width:100%;margin-bottom:6px;">
+                    <div style="background:{bar_color};height:10px;width:{width_pct}%;border-radius:6px;"></div>
+                </div>
+                <span style="color:{bar_color};font-weight:600">{label}</span>
+                """,
+                unsafe_allow_html=True
+            )
 
     st.divider()
 
@@ -208,26 +220,25 @@ def render_ai_scorecard():
     # --------------------------------------------------
     st.markdown("### 📋 Risk Assessment Summary")
 
-    positive_factors = []
-    risk_concerns = []
+    positives, risks = [], []
 
-    for name, raw_val, impact in drivers:
-        if impact < 0:
-            risk_concerns.append(f"❌ {name}: {impact:+.1f} points")
+    for name, val in drivers:
+        if val < 0:
+            risks.append(f"❌ {name}: {val:+.1f} points")
         else:
-            positive_factors.append(f"✅ {name}: {raw_val:.2f}")
+            positives.append(f"✅ {name}: {val:+.1f} points")
 
     r1, r2 = st.columns(2)
 
     with r1:
         st.markdown("**Positive Factors**")
-        for p in positive_factors:
+        for p in positives:
             st.write(p)
 
     with r2:
         st.markdown("**Risk Concerns**")
-        if risk_concerns:
-            for r in risk_concerns:
+        if risks:
+            for r in risks:
                 st.write(r)
         else:
             st.write("• No material concerns")

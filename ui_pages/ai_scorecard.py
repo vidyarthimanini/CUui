@@ -127,7 +127,7 @@ def render_ai_scorecard():
     # ==================================================
     # 📈 FH SCORE + 3Y FORECAST
     # ==================================================
-  hist_fy = res["history"]["FY"].tolist()
+    hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
  
     last_fy = hist_fy[-1]

@@ -1,174 +1,76 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
+from ui_pages.borrower_profile import render_borrower_profile
+from ui_pages.documents import render_documents
+from ui_pages.financial_data import render_financial_data
+from ui_pages.banking_conduct import render_banking_conduct
+from ui_pages.loan_request import render_loan_request
+from ui_pages.assessment import render_assessment
+from ui_pages.ai_scorecard import render_ai_scorecard
+# -------------------------------------------------
+# PAGE CONFIG
+# -------------------------------------------------
+st.set_page_config(
+    page_title="Corporate Credit Underwriting",
+    layout="wide"
+)
 
 # -------------------------------------------------
-# SAFE PLOTLY IMPORT (CRITICAL)
+# SIDEBAR NAVIGATION (BUTTON PANE)
 # -------------------------------------------------
-try:
-    import plotly.graph_objects as go
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    PLOTLY_AVAILABLE = False
+st.sidebar.title("Home")
 
+PAGES = [
+    "Borrower Profile",
+    "Financial Data",
+    "Banking Conduct",
+    "Loan Request",
+    "Assessment",
+    "Documents",
+    "AI Scorecard",
+    "Tools"
+]
+
+# Initialize page state
+if "page" not in st.session_state:
+    st.session_state.page = "Borrower Profile"
+
+# Render navigation buttons
+for p in PAGES:
+    if st.sidebar.button(p, use_container_width=True):
+        st.session_state.page = p
+
+page = st.session_state.page
 
 # -------------------------------------------------
-# MAIN RENDER FUNCTION
+# HEADER
 # -------------------------------------------------
-def render_ai_scorecard():
+st.markdown("## Corporate Credit Underwriting")
+st.caption("Comprehensive credit assessment platform")
+st.divider()
 
-    st.markdown("## 🤖 AI Model Feedback & Scorecard")
-    st.caption("Explainable credit risk assessment using ML & business logic")
-    st.divider()
+# -------------------------------------------------
+# PAGE ROUTING
+# -------------------------------------------------
+if page == "Borrower Profile":
+    render_borrower_profile()
 
-    # -------------------------------------------------
-    # SAFETY CHECK — REQUIRED DATA
-    # -------------------------------------------------
-    required_keys = [
-        "ENGINEERED_DF",
-        "MODEL",
-        "FEATURES",
-        "FEATURE_MEANS",
-        "FEATURE_STDS"
-    ]
+elif page == "Financial Data":
+    render_financial_data()
 
-    for k in required_keys:
-        if k not in st.session_state:
-            st.warning("Please complete earlier sections before viewing AI Scorecard.")
-            return
+elif page == "Banking Conduct":
+    render_banking_conduct()
 
-    df = st.session_state["ENGINEERED_DF"]
-    model = st.session_state["MODEL"]
-    FEATURES = st.session_state["FEATURES"]
-    means = st.session_state["FEATURE_MEANS"]
-    stds = st.session_state["FEATURE_STDS"]
+elif page == "Loan Request":
+    render_loan_request()
+    
+elif page == "Assessment":
+    render_assessment()
+    
+elif page == "Documents":
+    render_documents()
 
-    # -------------------------------------------------
-    # COMPANY SELECTION
-    # -------------------------------------------------
-    companies = sorted(df["Company Name"].dropna().unique())
-
-    company = st.selectbox(
-        "Select Company for AI Analysis",
-        companies,
-        key="ai_company"
-    )
-
-    row = df[df["Company Name"] == company].iloc[-1]
-    X = row[FEATURES]
-
-    # -------------------------------------------------
-    # MODEL PREDICTION
-    # -------------------------------------------------
-    fh_pred = model.predict(pd.DataFrame([X]))[0]
-
-    if fh_pred >= 75:
-        risk_band = "Low"
-    elif fh_pred >= 50:
-        risk_band = "Moderate"
-    else:
-        risk_band = "High"
-
-    # -------------------------------------------------
-    # SCORECARD UI
-    # -------------------------------------------------
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("FH Score (Formula)", f"{row['FH_Score']:.2f}")
-    col2.metric("FH Score (AI)", f"{fh_pred:.2f}")
-    col3.metric("Risk Band", risk_band)
-
-    st.divider()
-
-    # -------------------------------------------------
-    # SHAP-STYLE LINEAR IMPACT
-    # -------------------------------------------------
-    coef = model.coef_
-    z = (X - means) / stds
-    impacts = z * coef
-
-    shap_df = pd.DataFrame({
-        "Feature": FEATURES,
-        "Impact": impacts.values
-    })
-
-    # -------------------------------------------------
-    # BUSINESS DRIVER MAPPING
-    # -------------------------------------------------
-    BUSINESS_DRIVERS = {
-        "DSCR": "DSCR Ratio",
-        "Current Ratio": "Current Ratio",
-        "FH_Score": "Debt–Equity Ratio",
-        "EBITDA_Margin": "EBITDA Margin",
-        "Growth_1Y": "Revenue Growth (YoY)",
-        "Loan_Type_EWS": "Banking Conduct",
-        "Document_Score": "Industry Risk"
-    }
-
-    driver_rows = []
-
-    for key, label in BUSINESS_DRIVERS.items():
-        match = shap_df[shap_df["Feature"].str.contains(key, case=False)]
-        impact = match["Impact"].sum() if not match.empty else 0.0
-
-        driver_rows.append({
-            "Driver": label,
-            "Impact": round(float(impact), 2)
-        })
-
-    driver_df = pd.DataFrame(driver_rows)
-
-    # -------------------------------------------------
-    # POSITIVE / NEGATIVE FACTORS
-    # -------------------------------------------------
-    pos = driver_df[driver_df["Impact"] > 0]
-    neg = driver_df[driver_df["Impact"] < 0]
-
-    cpos, cneg = st.columns(2)
-
-    with cpos:
-        st.markdown("### ✅ Positive Factors")
-        if pos.empty:
-            st.write("• None")
-        for _, r in pos.iterrows():
-            st.write(f"• **{r['Driver']}**  +{r['Impact']}")
-
-    with cneg:
-        st.markdown("### ❌ Risk Concerns")
-        if neg.empty:
-            st.write("• No material concerns")
-        for _, r in neg.iterrows():
-            st.write(f"• **{r['Driver']}**  {r['Impact']}")
-
-    st.divider()
-
-    # -------------------------------------------------
-    # SHAP BAR CHART (OPTIONAL)
-    # -------------------------------------------------
-    st.markdown("### 📉 Key Risk Drivers")
-
-    if not PLOTLY_AVAILABLE:
-        st.warning("Charts unavailable (Plotly not installed).")
-        st.dataframe(driver_df)
-        return
-
-    colors = ["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]]
-
-    fig = go.Figure()
-    fig.add_bar(
-        x=driver_df["Impact"],
-        y=driver_df["Driver"],
-        orientation="h",
-        marker_color=colors,
-        text=driver_df["Impact"],
-        textposition="auto"
-    )
-
-    fig.update_layout(
-        height=350,
-        title="Explainable AI – Risk Driver Impact",
-        xaxis_title="Impact on FH Score",
-        margin=dict(l=80, r=40, t=60, b=40)
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+elif page == "AI Scorecard":
+    render_ai_scorecard()
+elif page == "Tools":
+    st.info("Tools page (to be implemented)")
+this is my app code this is one of the ui pages i am using 

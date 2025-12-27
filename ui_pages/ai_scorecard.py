@@ -5,9 +5,9 @@ from matplotlib.ticker import MaxNLocator
 from model.ews_model import analyze_company
 
 
-# --------------------------------------------------
-# SMALL, CLEAN TIMESERIES STYLE
-# --------------------------------------------------
+# ==================================================
+# TIMESERIES STYLE
+# ==================================================
 def style_timeseries(ax, title):
     ax.set_title(title, fontsize=10)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -18,50 +18,41 @@ def style_timeseries(ax, title):
     plt.tight_layout(pad=0.8)
 
 
-# --------------------------------------------------
-# SYMMETRIC EXPLAINABLE IMPACT (KEY DRIVERS ONLY)
-# --------------------------------------------------
-def explainable_impact(value, good, bad, max_impact):
-    """
-    Symmetric explainability impact.
-    -max_impact (worst) → 0 → +max_impact (best)
-    """
+# ==================================================
+# IMPACT SCORING (KEY DRIVERS)
+# ==================================================
+def score_to_impact(value, good, bad, max_impact):
     if value is None or pd.isna(value):
         return 0.0
-
     try:
         value = float(value)
     except:
         return 0.0
 
+    if value >= good:
+        return 0.0
     if value <= bad:
         return -max_impact
-    if value >= good:
-        return +max_impact
-
-    mid = (good + bad) / 2
-    return (value - mid) / (good - mid) * max_impact
+    return -max_impact * (good - value) / (good - bad)
 
 
-# --------------------------------------------------
+# ==================================================
 # MAIN PAGE
-# --------------------------------------------------
+# ==================================================
 def render_ai_scorecard():
 
     st.markdown("## 🤖 AI Model Feedback & Scorecard")
     st.divider()
 
-    # --------------------------------------------------
-    # LOAD DATA
-    # --------------------------------------------------
+    # ---------------- LOAD DATA ----------------
     df = pd.read_excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
-    company = st.selectbox(
-        "Select Company",
-        df["Company Name"].dropna().unique()
-    )
+    companies = df["Company Name"].dropna().unique()
+    company = st.selectbox("Select Company", companies)
 
+    # ALWAYS recompute model → no stale forecast
     if st.button("▶ Run AI Model"):
-        st.session_state["model_result"] = analyze_company(df, company)
+        res = analyze_company(df, company)
+        st.session_state["model_result"] = res
 
     if "model_result" not in st.session_state:
         st.info("Select a company and run the AI model.")
@@ -73,9 +64,7 @@ def render_ai_scorecard():
     fh_score = int(round(res["fh_score"]))
     sb_text = "SB3 · Good" if fh_score >= 80 else "SB13 · Poor"
 
-    # --------------------------------------------------
-    # SCORE CARD
-    # --------------------------------------------------
+    # ---------------- SCORE CARD ----------------
     left, right = st.columns([1, 2])
 
     with left:
@@ -87,7 +76,7 @@ def render_ai_scorecard():
                 <span style="color:#d9534f;font-weight:600">{sb_text}</span>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     with right:
@@ -104,133 +93,135 @@ def render_ai_scorecard():
         ]:
             st.markdown(
                 f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
     st.divider()
 
-    # --------------------------------------------------
-    # DECISION
-    # --------------------------------------------------
-    decision = (
-        "Approve" if fh_score >= 75
-        else "Review" if fh_score >= 60
-        else "Reject"
-    )
-
-    color = (
-        "#ecfdf3" if decision == "Approve"
-        else "#fff7e6" if decision == "Review"
-        else "#fff1f0"
-    )
+    # ---------------- DECISION ----------------
+    decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
+    bg = "#ecfdf3" if decision == "Approve" else "#fff7e6" if decision == "Review" else "#fff1f0"
 
     st.markdown(
         f"""
-        <div style="background:{color};padding:20px;border-radius:12px">
+        <div style="background:{bg};padding:20px;border-radius:12px">
             <h4>Decision Recommendation</h4>
             <h2>{decision}</h2>
+            <p>Based on AI-driven financial health assessment.</p>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     st.divider()
 
-    # --------------------------------------------------
-    # KEY RISK DRIVERS
-    # --------------------------------------------------
-    st.markdown("### 🔍 Key Risk Drivers (Explainable)")
+    # ==================================================
+    # 📈 FH SCORE + 3Y FORECAST (CORRECT & STABLE)
+    # ==================================================
+    hist_fy = res["history"]["FY"].tolist()
+    hist_score = res["history"]["FH_Score"].tolist()
 
-    drivers = [
-        ("DSCR Ratio",
-         explainable_impact(last["DSCR"], 1.5, 0.9, 8)),
+    last_fy = hist_fy[-1]
+    last_score = hist_score[-1]
 
-        ("Debt–Equity Ratio",
-         explainable_impact(
-             last["Net Worth (₹ Crore)"] /
-             (last["Total Debt (₹ Crore)"] + 1e-6),
-             0.6, 0.25, 6)),
+    forecast_years = [last_fy + i for i in range(1, 4)]
+    forecast_scores = (
+        list(res["forecast"])
+        if isinstance(res["forecast"], (list, tuple))
+        else [res["forecast"]] * 3
+    )
 
-        ("Current Ratio",
-         explainable_impact(last["Current Ratio"], 1.5, 1.0, 5)),
-
-        ("EBITDA Margin",
-         explainable_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
-
-        ("Revenue Growth (YoY)",
-         explainable_impact(
-             last["Growth_1Y"] * 100
-             if not pd.isna(last["Growth_1Y"]) else None,
-             10, -5, 3)),
-    ]
-
-    for name, val in drivers:
-        c1, c2 = st.columns([2, 6])
-
-        with c1:
-            st.write(name)
-
-        with c2:
-            bar_val = min(abs(val) / 8, 1.0)
-
-            if val < 0:
-                st.progress(bar_val)
-                st.markdown(
-                    f"<span style='color:#d62728;font-weight:600'>🔴 {val:+.1f}</span>",
-                    unsafe_allow_html=True
-                )
-            elif val > 0:
-                st.progress(bar_val)
-                st.markdown(
-                    f"<span style='color:#1f77b4;font-weight:600'>🔵 +{val:.1f}</span>",
-                    unsafe_allow_html=True
-                )
-            else:
-                st.progress(0.05)
-                st.markdown(
-                    "<span style='color:#2ca02c;font-weight:600'>🟢 Neutral</span>",
-                    unsafe_allow_html=True
-                )
+    _, mid, _ = st.columns([1, 3, 1])
+    with mid:
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
+        ax.plot(
+            [last_fy] + forecast_years,
+            [last_score] + forecast_scores,
+            "--s",
+            linewidth=2,
+            label="Forecast (3Y)",
+        )
+        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
+        st.pyplot(fig, width="stretch")
 
     st.divider()
 
-    # --------------------------------------------------
-    # RISK SUMMARY
-    # --------------------------------------------------
-    st.markdown("### 📋 Risk Assessment Summary")
+    # ---------------- REVENUE & EBITDA ----------------
+    c1, c2 = st.columns(2)
+
+    with c1:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o")
+        style_timeseries(ax, "Revenue Growth (YoY %)")
+        st.pyplot(fig)
+
+    with c2:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s")
+        style_timeseries(ax, "EBITDA Margin (%)")
+        st.pyplot(fig)
+
+    st.divider()
+
+    # ---------------- KEY RISK DRIVERS ----------------
+    st.markdown("### 🔍 Key Risk Drivers (Explainable)")
+
+    drivers = [
+        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
+        (
+            "Debt–Equity Ratio",
+            score_to_impact(
+                last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
+                0.6,
+                0.25,
+                6,
+            ),
+        ),
+        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
+        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
+        ("Revenue Growth (YoY)", score_to_impact(last["Growth_1Y"] * 100, 10, -5, 3)),
+    ]
 
     positives, risks = [], []
 
     for name, val in drivers:
+        c1, c2 = st.columns([2, 6])
+        with c1:
+            st.write(name)
+        with c2:
+            st.progress(min(abs(val) / 8, 1.0))
+            st.caption(f"{val:+.1f}")
+
         if val < -1:
             risks.append(f"❌ {name}: {val:+.1f}")
-        elif val > 1:
-            positives.append(f"✅ {name}: +{val:.1f}")
+        elif val >= 0:
+            positives.append(f"✅ {name}")
 
-    c1, c2 = st.columns(2)
+    st.divider()
 
-    with c1:
+    # ---------------- RISK SUMMARY ----------------
+    st.markdown("### 📋 Risk Assessment Summary")
+
+    r1, r2 = st.columns(2)
+
+    with r1:
         st.markdown("**Positive Factors**")
-        for p in positives or ["• None"]:
+        for p in positives or ["• None identified"]:
             st.write(p)
 
-    with c2:
+    with r2:
         st.markdown("**Risk Concerns**")
         for r in risks or ["• No material concerns"]:
             st.write(r)
 
     st.divider()
 
-    # --------------------------------------------------
-    # NAVIGATION
-    # --------------------------------------------------
+    # ---------------- NAVIGATION ----------------
     n1, n2, n3 = st.columns(3)
-
     with n1:
         st.button("← Back to Documents")
-
     with n2:
         st.button("⬇ Export Report")
-
     with n3:
         st.button("Continue to Tools →")

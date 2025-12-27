@@ -184,15 +184,31 @@ def render_ai_scorecard():
     ]
 
     for name, val in drivers:
-        c1, c2 = st.columns([2, 6])
-        with c1:
-            st.write(name)
-        with c2:
-            st.progress(min(abs(val) / 8, 1.0))
-            if val == 0:
-                st.caption("No risk impact")
-            else:
-                st.caption(f"{val:+.1f}")
+    c1, c2 = st.columns([2, 6])
+
+    with c1:
+        st.write(name)
+
+    with c2:
+        st.progress(min(abs(val) / 8, 1.0))
+
+        # ✅ COLOR-CODED IMPACT TEXT
+        if val == 0:
+            st.markdown(
+                "<span style='color:#2ca02c;font-weight:600'>✔ No risk impact</span>",
+                unsafe_allow_html=True
+            )
+        elif val < 0:
+            st.markdown(
+                f"<span style='color:#d62728;font-weight:600'>✖ {val:+.1f} points</span>",
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f"<span style='color:#2ca02c;font-weight:600'>▲ {val:+.1f} points</span>",
+                unsafe_allow_html=True
+            )
+
 
     st.divider()
 

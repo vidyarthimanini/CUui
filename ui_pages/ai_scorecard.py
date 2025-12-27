@@ -37,6 +37,34 @@ def score_to_impact(value, good, bad, max_impact):
 
 
 # --------------------------------------------------
+# SHAP-STYLE BAR RENDERER (UI ONLY)
+# --------------------------------------------------
+def render_shap_bar(label, impact, max_impact=8):
+    width = min(abs(impact) / max_impact, 1.0) * 100
+    color = "#ef4444" if impact < 0 else "#22c55e"
+
+    st.markdown(
+        f"""
+        <div style="margin-bottom:10px">
+            <div style="font-size:14px;margin-bottom:4px">{label}</div>
+            <div style="background:#e5e7eb;border-radius:8px;height:14px;position:relative">
+                <div style="
+                    width:{width}%;
+                    background:{color};
+                    height:14px;
+                    border-radius:8px">
+                </div>
+            </div>
+            <div style="text-align:right;font-size:12px;color:{color}">
+                {impact:+.1f}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# --------------------------------------------------
 # MAIN PAGE
 # --------------------------------------------------
 def render_ai_scorecard():
@@ -117,10 +145,27 @@ def render_ai_scorecard():
         unsafe_allow_html=True
     )
 
+    # --------------------------------------------------
+    # 🔍 KEY RISK DRIVERS (SHAP-STYLE)
+    # --------------------------------------------------
+    st.divider()
+    st.markdown("### 🔍 Key Risk Drivers (SHAP Analysis)")
+
+    drivers = [
+        ("Banking Conduct", score_to_impact(last.get("Maximum DPD Observed", 0), 0, 60, 6)),
+        ("Industry Risk", score_to_impact(last.get("Industry Risk Score", 0), 1, 3, 4)),
+        ("Management Quality", score_to_impact(last.get("Promoter Risk Flag", 0), 0, 1, 3)),
+        ("CIBIL Score", score_to_impact(last.get("CIBIL Score", 750), 750, 650, 3)),
+        ("DSCR Ratio", score_to_impact(last.get("DSCR"), 1.5, 0.9, 3)),
+    ]
+
+    for label, impact in drivers:
+        render_shap_bar(label, impact)
+
     st.divider()
 
     # --------------------------------------------------
-    # 📈 FH SCORE + 3Y FORECAST (UI SPACE FIXED)
+    # 📈 FH SCORE + FORECAST
     # --------------------------------------------------
     hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
@@ -129,68 +174,17 @@ def render_ai_scorecard():
     last_score = hist_score[-1]
 
     forecast_years = [last_fy + i for i in range(1, 4)]
+    forecast_scores = res["forecast"] if isinstance(res["forecast"], list) else [res["forecast"]] * 3
 
-    if isinstance(res["forecast"], (list, tuple)):
-        forecast_scores = list(res["forecast"])
-    else:
-        forecast_scores = [res["forecast"]] * 3
-
-    _, mid, _ = st.columns([1, 3, 1])
-
-    with mid:
-        fig, ax = plt.subplots(figsize=(6, 2))
-        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
-        ax.plot(
-            [last_fy] + forecast_years,
-            [last_score] + forecast_scores,
-            "--s", linewidth=2, label="Forecast (3Y)"
-        )
-        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
-        st.pyplot(fig, use_container_width=True)
-
-    st.divider()
-
-    # --------------------------------------------------
-    # 📈 REVENUE & EBITDA (SIDE BY SIDE)
-    # --------------------------------------------------
-    c1, c2 = st.columns(2)
-
-    with c1:
-        fig, ax = plt.subplots(figsize=(4.5, 2.2))
-        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o", linewidth=2)
-        style_timeseries(ax, "Revenue Growth (YoY %)")
-        st.pyplot(fig)
-
-    with c2:
-        fig, ax = plt.subplots(figsize=(4.5, 2.2))
-        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s", linewidth=2)
-        style_timeseries(ax, "EBITDA Margin (%)")
-        st.pyplot(fig)
-
-    st.divider()
-
-    # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS SUMMARY
-    # --------------------------------------------------
-    st.markdown("### 🔍 Key Risk Drivers (Explainable)")
-
-    drivers = [
-        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
-        ("Debt–Equity Ratio",
-         score_to_impact(last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6), 0.6, 0.25, 6)),
-        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
-        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
-        ("Revenue Growth (YoY)",
-         score_to_impact(last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None, 10, -5, 3)),
-    ]
-
-    for name, val in drivers:
-        c1, c2 = st.columns([2, 6])
-        with c1:
-            st.write(name)
-        with c2:
-            st.progress(min(abs(val) / 8, 1.0))
-            st.caption(f"{int(round(val)):+d}")
+    fig, ax = plt.subplots(figsize=(6, 2))
+    ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
+    ax.plot(
+        [last_fy] + forecast_years,
+        [last_score] + forecast_scores,
+        "--s", linewidth=2, label="Forecast"
+    )
+    style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
+    st.pyplot(fig, use_container_width=True)
 
     st.divider()
 

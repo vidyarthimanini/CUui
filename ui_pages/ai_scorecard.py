@@ -1,6 +1,22 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from model.run_model import run_model
+st.subheader("📂 Run Model")
+
+uploaded = st.file_uploader("Upload Excel (2 companies)", type=["xlsx"])
+
+if uploaded:
+    df_tmp = pd.read_excel(uploaded)
+    companies = df_tmp["Company Name"].dropna().unique()
+
+    selected_company = st.selectbox("Select Company", companies)
+
+    if st.button("Run AI Model"):
+        with st.spinner("Running model..."):
+            result = run_model(uploaded, selected_company)
+            st.session_state["MODEL_RESULT"] = result
+            st.success("Model executed successfully")
 
 
 def render_ai_scorecard():

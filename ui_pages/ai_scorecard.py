@@ -1,109 +1,118 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 
-from model.fh_model import run_model
-from engine.engine import sb_label, categorize_score_numeric
 
 def render_ai_scorecard():
 
     st.markdown("## 🤖 AI Model Feedback & Scorecard")
     st.divider()
 
-    # -----------------------------
-    # UPLOAD FILES
-    # -----------------------------
-    master_file = st.file_uploader(
-        "Upload Master Dataset (Training)",
-        type=["xlsx"],
-        key="master"
-    )
+    # -------------------------------------------------
+    # FETCH MODEL OUTPUT FROM SESSION
+    # -------------------------------------------------
+    result = st.session_state.get("MODEL_RESULT")
 
-    input_file = st.file_uploader(
-        "Upload Input Dataset (Prediction)",
-        type=["xlsx"],
-        key="input"
-    )
-
-    if not master_file or not input_file:
-        st.info("Upload both files to continue.")
+    if result is None:
+        st.info("Run the assessment to generate AI scorecard.")
         return
 
-    master_df = pd.read_excel(master_file)
-    input_df = pd.read_excel(input_file)
+    fh_score = result["fh_score"]
+    sb_code = result["sb_code"]
+    sb_text = result["sb_text"]
+    sb_range = result["sb_range"]
+    risk_band = result["risk_band"]
+    drivers = result["drivers"]
 
-    # -----------------------------
-    # RUN MODEL (ONCE)
-    # -----------------------------
-    if st.button("🚀 Calculate Risk"):
-
-        with st.spinner("Running AI model..."):
-            result = run_model(master_df, input_df)
-
-        st.session_state["AI_RESULT"] = result
-
-    if "AI_RESULT" not in st.session_state:
-        return
-
-    res = st.session_state["AI_RESULT"]
-    df = res["engineered_input"]
-    model = res["model"]
-    FEATURES = res["features"]
-    means = res["means"]
-    stds = res["stds"]
-
-    # -----------------------------
-    # COMPANY SELECTION
-    # -----------------------------
-    company = st.selectbox(
-        "Select Company",
-        df["Company Name"].dropna().unique()
-    )
-
-    row = df[df["Company Name"] == company].iloc[-1]
-    X = row[FEATURES]
-
-    fh_pred = model.predict(pd.DataFrame([X]))[0]
-    sb_code, sb_text, sb_range = sb_label(fh_pred)
-    risk_band = categorize_score_numeric(fh_pred)
-
-    # -----------------------------
+    # -------------------------------------------------
     # SCORE CARD
-    # -----------------------------
-    c1, c2, c3 = st.columns(3)
-    c1.metric("FH Score (Formula)", f"{row['FH_Score']:.2f}")
-    c2.metric("FH Score (AI)", f"{fh_pred:.2f}")
-    c3.metric("Risk Band", risk_band)
+    # -------------------------------------------------
+    left, right = st.columns([1.2, 2])
 
+    with left:
+        st.markdown(
+            f"""
+            <div style="background:#f3f4ff;padding:26px;border-radius:14px;text-align:center">
+                <h1 style="color:#4f46e5;margin-bottom:0">{fh_score:.0f}</h1>
+                <p>Risk Score</p>
+                <b>{sb_code} · {sb_text}</b>
+                <div style="font-size:12px;color:gray">{sb_range}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with right:
+        st.markdown("### Risk Band Classification")
+
+        bands = [
+            ("SB1","Excellent","90–100"),
+            ("SB2","Very Good","85–89"),
+            ("SB3","Good","80–84"),
+            ("SB4","Good","75–79"),
+            ("SB5","Satisfactory","70–74"),
+            ("SB6","Acceptable","60–69"),
+            ("SB9","Marginal","50–59"),
+            ("SB13","Poor","30–49"),
+        ]
+
+        for b, t, r in bands:
+            st.markdown(f"**{b}** — {t} <span style='float:right'>{r}</span>",
+                        unsafe_allow_html=True)
+
+    # -------------------------------------------------
+    # DECISION
+    # -------------------------------------------------
     st.divider()
 
-    # -----------------------------
-    # SHAP-STYLE DRIVER ANALYSIS
-    # -----------------------------
-    coef = model.named_steps["model"].coef_
-    z = (X - means) / stds
-    impacts = z * coef
+    if risk_band == "Low":
+        decision, color = "Approve", "#16a34a"
+    elif risk_band == "Moderate":
+        decision, color = "Review", "#f59e0b"
+    else:
+        decision, color = "Reject", "#dc2626"
 
-    driver_df = pd.DataFrame({
-        "Feature": FEATURES,
-        "Impact": impacts.values
-    }).sort_values("Impact")
-
-    colors = ["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]]
-
-    fig = go.Figure(go.Bar(
-        x=driver_df["Impact"],
-        y=driver_df["Feature"],
-        orientation="h",
-        marker_color=colors,
-        text=[f"{v:.2f}" for v in driver_df["Impact"]],
-        textposition="auto"
-    ))
-
-    fig.update_layout(
-        title="Key Risk Drivers (Explainable AI)",
-        height=400
+    st.markdown(
+        f"""
+        <div style="background:#fff1f0;padding:20px;border-radius:12px">
+            <h4 style="color:{color}">Decision Recommendation</h4>
+            <h2>{decision}</h2>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    # -------------------------------------------------
+    # KEY RISK DRIVERS (STREAMLIT NATIVE)
+    # -------------------------------------------------
+    st.divider()
+    st.markdown("### 📉 Key Risk Drivers")
+
+    driver_df = pd.DataFrame(drivers, columns=["Feature", "Impact"])
+    driver_df = driver_df.sort_values("Impact")
+
+    st.bar_chart(
+        driver_df.set_index("Feature"),
+        height=350
+    )
+
+    # -------------------------------------------------
+    # SUMMARY
+    # -------------------------------------------------
+    st.divider()
+    st.markdown("### 📋 Risk Summary")
+
+    positives = driver_df[driver_df["Impact"] > 0].tail(3)
+    negatives = driver_df[driver_df["Impact"] < 0].head(3)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("**✅ Positive Factors**")
+        for _, r in positives.iterrows():
+            st.write(f"• {r['Feature']}")
+
+    with c2:
+        st.markdown("**❌ Risk Concerns**")
+        for _, r in negatives.iterrows():
+            st.write(f"• {r['Feature']}")

@@ -127,17 +127,19 @@ def render_ai_scorecard():
 
     last_fy = hist_fy[-1]
     last_score = hist_score[-1]
-    forecast_years = [last_fy + i for i in range(1, 4)]
 
+    forecast_years = [last_fy + i for i in range(1, 4)]
     forecast_scores = list(res["forecast"]) if isinstance(res["forecast"], (list, tuple)) else [res["forecast"]] * 3
 
     _, mid, _ = st.columns([1, 3, 1])
     with mid:
         fig, ax = plt.subplots(figsize=(6, 2))
         ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
-        ax.plot([last_fy] + forecast_years,
-                [last_score] + forecast_scores,
-                "--s", linewidth=2, label="Forecast (3Y)")
+        ax.plot(
+            [last_fy] + forecast_years,
+            [last_score] + forecast_scores,
+            "--s", linewidth=2, label="Forecast (3Y)"
+        )
         style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
         st.pyplot(fig, use_container_width=True)
 
@@ -150,34 +152,36 @@ def render_ai_scorecard():
 
     with c1:
         fig, ax = plt.subplots(figsize=(4.5, 2.2))
-        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o")
+        ax.plot(res["growth"]["FY"], res["growth"]["Growth_1Y"] * 100, marker="o", linewidth=2)
         style_timeseries(ax, "Revenue Growth (YoY %)")
         st.pyplot(fig)
 
     with c2:
         fig, ax = plt.subplots(figsize=(4.5, 2.2))
-        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s")
+        ax.plot(res["ebitda"]["FY"], res["ebitda"]["EBITDA_Margin"] * 100, marker="s", linewidth=2)
         style_timeseries(ax, "EBITDA Margin (%)")
         st.pyplot(fig)
 
     st.divider()
 
     # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS
+    # 🔍 KEY RISK DRIVERS (FIXED)
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
         ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
         ("Debt–Equity Ratio",
-         score_to_impact(last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6), 0.6, 0.25, 6)),
+         score_to_impact(
+             last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
+             0.6, 0.25, 6)),
         ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
         ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"] * 100, 20, 5, 4)),
-        ("Revenue Growth (YoY)", score_to_impact(last["Growth_1Y"] * 100, 10, -5, 3)),
+        ("Revenue Growth (YoY)",
+         score_to_impact(
+             last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
+             10, -5, 3))
     ]
-
-    positive_factors = []
-    risk_concerns = []
 
     for name, val in drivers:
         c1, c2 = st.columns([2, 6])
@@ -185,19 +189,26 @@ def render_ai_scorecard():
             st.write(name)
         with c2:
             st.progress(min(abs(val) / 8, 1.0))
-            st.caption(f"{val:+.1f}")
-
-        if val < -1:
-            risk_concerns.append(f"❌ {name}: {val:+.1f} points")
-        elif val >= 0:
-            positive_factors.append(f"✅ {name}")
+            if val == 0:
+                st.caption("No risk impact")
+            else:
+                st.caption(f"{val:+.1f}")
 
     st.divider()
 
     # --------------------------------------------------
-    # 📋 RISK ASSESSMENT SUMMARY (MISSING PART — FIXED)
+    # 📋 RISK ASSESSMENT SUMMARY (NOW FUNCTIONAL)
     # --------------------------------------------------
     st.markdown("### 📋 Risk Assessment Summary")
+
+    positive_factors = []
+    risk_concerns = []
+
+    for name, val in drivers:
+        if val <= -1:
+            risk_concerns.append(f"❌ {name}: {val:+.1f} points")
+        elif val == 0:
+            positive_factors.append(f"✅ {name}: No risk impact")
 
     r1, r2 = st.columns(2)
 
@@ -216,20 +227,6 @@ def render_ai_scorecard():
                 st.write(r)
         else:
             st.write("• No material concerns")
-
-    st.divider()
-
-    # --------------------------------------------------
-    # MODEL METRICS
-    # --------------------------------------------------
-    m1, m2, m3 = st.columns(3)
-
-    with m1:
-        st.markdown("<div style='background:#eef6ff;padding:20px;border-radius:12px;text-align:center'><h3>94.2%</h3><p>Model Accuracy</p></div>", unsafe_allow_html=True)
-    with m2:
-        st.markdown("<div style='background:#ecfdf3;padding:20px;border-radius:12px;text-align:center'><h3>0.89</h3><p>AUC Score</p></div>", unsafe_allow_html=True)
-    with m3:
-        st.markdown("<div style='background:#f7f0ff;padding:20px;border-radius:12px;text-align:center'><h3>87.5%</h3><p>Precision Rate</p></div>", unsafe_allow_html=True)
 
     st.divider()
 

@@ -7,7 +7,7 @@ def render_financial_data():
 
     # ---------- INIT SESSION ----------
     if "financials" not in st.session_state:
-        st.session_state.financials = {
+        st.session_state.data.["financials"] = {
             "FY 2022": {},
             "FY 2023": {},
             "FY 2024": {},

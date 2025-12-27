@@ -33,9 +33,7 @@ def render_ai_scorecard():
     means = st.session_state.get("FEATURE_MEANS")
     stds = st.session_state.get("FEATURE_STDS")
 
-    if df is None or model is None or FEATURES is None:
-        st.info("ℹ️ AI Scorecard is waiting for model & data. Showing placeholder view.")
-        st.stop()
+   
 
     # -------------------------------------------------
     # COMPANY SELECTION

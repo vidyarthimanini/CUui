@@ -84,10 +84,14 @@ def render_ai_scorecard():
     with right:
         st.markdown("### Risk Band Classification")
         for b, l, r in [
-            ("SB1","Excellent","90–100"),("SB2","Very Good","85–89"),
-            ("SB3","Good","80–84"),("SB4","Good","75–79"),
-            ("SB5","Satisfactory","70–74"),("SB6","Satisfactory","65–69"),
-            ("SB7","Acceptable","60–64"),("SB8","Acceptable","55–59"),
+            ("SB1","Excellent","90–100"),
+            ("SB2","Very Good","85–89"),
+            ("SB3","Good","80–84"),
+            ("SB4","Good","75–79"),
+            ("SB5","Satisfactory","70–74"),
+            ("SB6","Satisfactory","65–69"),
+            ("SB7","Acceptable","60–64"),
+            ("SB8","Acceptable","55–59"),
         ]:
             st.markdown(
                 f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
@@ -97,7 +101,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # DECISION
+    # DECISION SUMMARY
     # --------------------------------------------------
     decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
     color = "#ecfdf3" if decision=="Approve" else "#fff7e6" if decision=="Review" else "#fff1f0"
@@ -116,7 +120,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 📈 FH SCORE + 3Y FORECAST (FIXED)
+    # 📈 FH SCORE + 3Y FORECAST (ROBUST)
     # --------------------------------------------------
     hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
@@ -126,9 +130,9 @@ def render_ai_scorecard():
 
     forecast_years = [last_fy + i for i in range(1, 4)]
 
-    # ✅ FIX: normalize forecast output
+    # SAFE NORMALIZATION
     if isinstance(res["forecast"], (list, tuple)):
-        forecast_scores = res["forecast"]
+        forecast_scores = list(res["forecast"])
     else:
         forecast_scores = [res["forecast"]] * 3
 
@@ -172,7 +176,7 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # 🔍 KEY RISK DRIVERS
+    # 🔍 KEY RISK DRIVERS SUMMARY
     # --------------------------------------------------
     st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
@@ -195,7 +199,7 @@ def render_ai_scorecard():
         with c1:
             st.write(name)
         with c2:
-            st.progress(min(abs(val)/8, 1.0))
+            st.progress(min(abs(val) / 8, 1.0))
             st.caption(f"{int(round(val)):+d}")
 
     st.divider()

@@ -172,4 +172,3 @@ def render_ai_scorecard():
     )
 
     st.plotly_chart(fig, use_container_width=True)
-remove this restriction

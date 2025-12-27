@@ -54,7 +54,7 @@ def score_to_impact(value, good, bad, max_impact):
  
     if value >= good:
 
-        return 0.0
+        return max_impact
 
     if value <= bad:
 

@@ -1,203 +1,109 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import io
+import plotly.graph_objects as go
 
-# OPTIONAL PLOTLY (SAFE)
-try:
-    import plotly.graph_objects as go
-    PLOTLY = True
-except:
-    PLOTLY = False
+from model.fh_model import run_model
+from engine.engine import sb_label, categorize_score_numeric
 
-# MODEL IMPORT (YOU ALREADY CREATED THIS)
-from model.model import run_model
-
-
-# -------------------------------------------------
-# HELPER: SHAP-STYLE IMPACT
-# -------------------------------------------------
-def score_to_impact(value, good, bad, max_impact):
-    try:
-        value = float(value)
-    except:
-        return 0.0
-
-    if value >= good:
-        return 0.0
-    if value <= bad:
-        return -max_impact
-    return -max_impact * (good - value) / (good - bad)
-
-
-# -------------------------------------------------
-# MAIN PAGE
-# -------------------------------------------------
 def render_ai_scorecard():
 
     st.markdown("## 🤖 AI Model Feedback & Scorecard")
-    st.caption("Explainable credit risk assessment")
     st.divider()
 
-    # -------------------------------------------------
-    # FILE UPLOAD
-    # -------------------------------------------------
-    uploaded = st.file_uploader(
-        "📥 Upload Financial Excel",
+    # -----------------------------
+    # UPLOAD FILES
+    # -----------------------------
+    master_file = st.file_uploader(
+        "Upload Master Dataset (Training)",
         type=["xlsx"],
-        key="ai_excel"
+        key="master"
     )
 
-    if uploaded is None:
-        st.info("Upload an Excel file to calculate AI score")
+    input_file = st.file_uploader(
+        "Upload Input Dataset (Prediction)",
+        type=["xlsx"],
+        key="input"
+    )
+
+    if not master_file or not input_file:
+        st.info("Upload both files to continue.")
         return
 
-    with st.spinner("Running AI credit model..."):
-        df_raw = pd.read_excel(uploaded)
-        df, model, FEATURES = run_model(df_raw)
+    master_df = pd.read_excel(master_file)
+    input_df = pd.read_excel(input_file)
 
-    # -------------------------------------------------
-    # COMPANY DROPDOWN
-    # -------------------------------------------------
-    companies = sorted(df["Company Name"].dropna().unique())
+    # -----------------------------
+    # RUN MODEL (ONCE)
+    # -----------------------------
+    if st.button("🚀 Calculate Risk"):
 
+        with st.spinner("Running AI model..."):
+            result = run_model(master_df, input_df)
+
+        st.session_state["AI_RESULT"] = result
+
+    if "AI_RESULT" not in st.session_state:
+        return
+
+    res = st.session_state["AI_RESULT"]
+    df = res["engineered_input"]
+    model = res["model"]
+    FEATURES = res["features"]
+    means = res["means"]
+    stds = res["stds"]
+
+    # -----------------------------
+    # COMPANY SELECTION
+    # -----------------------------
     company = st.selectbox(
-        "🏢 Select Company",
-        companies
+        "Select Company",
+        df["Company Name"].dropna().unique()
     )
 
-    hist = df[df["Company Name"] == company]
-    latest = hist.iloc[-1]
+    row = df[df["Company Name"] == company].iloc[-1]
+    X = row[FEATURES]
 
-    # -------------------------------------------------
-    # MODEL PREDICTION
-    # -------------------------------------------------
-    fh_formula = latest["FH_Score"]
-    fh_ai = model.predict(pd.DataFrame([latest[FEATURES]]))[0]
+    fh_pred = model.predict(pd.DataFrame([X]))[0]
+    sb_code, sb_text, sb_range = sb_label(fh_pred)
+    risk_band = categorize_score_numeric(fh_pred)
 
-    # SB BAND
-    if fh_ai >= 90:
-        sb = "SB1 · Excellent"
-    elif fh_ai >= 85:
-        sb = "SB2 · Very Good"
-    elif fh_ai >= 80:
-        sb = "SB3 · Good"
-    elif fh_ai >= 75:
-        sb = "SB4 · Good"
-    elif fh_ai >= 70:
-        sb = "SB5 · Satisfactory"
-    elif fh_ai >= 60:
-        sb = "SB6 · Acceptable"
-    elif fh_ai >= 50:
-        sb = "SB9 · Marginal"
-    else:
-        sb = "SB13 · Poor"
-
-    risk_band = "Low" if fh_ai >= 75 else "Moderate" if fh_ai >= 50 else "High"
-
-    # -------------------------------------------------
-    # SCORECARD
-    # -------------------------------------------------
+    # -----------------------------
+    # SCORE CARD
+    # -----------------------------
     c1, c2, c3 = st.columns(3)
-
-    c1.metric("FH Score (Formula)", f"{fh_formula:.2f}")
-    c2.metric("FH Score (AI)", f"{fh_ai:.2f}")
+    c1.metric("FH Score (Formula)", f"{row['FH_Score']:.2f}")
+    c2.metric("FH Score (AI)", f"{fh_pred:.2f}")
     c3.metric("Risk Band", risk_band)
 
     st.divider()
 
-    # -------------------------------------------------
-    # SHAP-STYLE DRIVER CALCULATION
-    # -------------------------------------------------
-    drivers = [
-        ("DSCR Ratio",
-         score_to_impact(latest["DSCR"], 1.5, 0.9, 8)),
+    # -----------------------------
+    # SHAP-STYLE DRIVER ANALYSIS
+    # -----------------------------
+    coef = model.named_steps["model"].coef_
+    z = (X - means) / stds
+    impacts = z * coef
 
-        ("Debt–Equity Ratio",
-         score_to_impact(
-             1 / (latest["Total Debt (₹ Crore)"] /
-                  (latest["Net Worth (₹ Crore)"] + 1e-6)),
-             0.6, 0.25, 6
-         )),
+    driver_df = pd.DataFrame({
+        "Feature": FEATURES,
+        "Impact": impacts.values
+    }).sort_values("Impact")
 
-        ("Current Ratio",
-         score_to_impact(latest["Current Ratio"], 1.5, 1.0, 5)),
+    colors = ["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]]
 
-        ("EBITDA Margin",
-         score_to_impact(latest["EBITDA_Margin"] * 100, 20, 5, 4)),
+    fig = go.Figure(go.Bar(
+        x=driver_df["Impact"],
+        y=driver_df["Feature"],
+        orientation="h",
+        marker_color=colors,
+        text=[f"{v:.2f}" for v in driver_df["Impact"]],
+        textposition="auto"
+    ))
 
-        ("Revenue Growth (YoY)",
-         score_to_impact(latest["Growth_1Y"] * 100, 10, -5, 3)),
-
-        ("Banking Conduct",
-         -min(8, 2 if latest["Maximum DPD Observed"] >= 60 else 0)),
-
-        ("Industry Risk", 0.0)  # placeholder (static for now)
-    ]
-
-    driver_df = pd.DataFrame(drivers, columns=["Driver", "Impact"])
-
-    # -------------------------------------------------
-    # DRIVER BAR CHART
-    # -------------------------------------------------
-    st.markdown("### 📉 Key Risk Drivers")
-
-    if PLOTLY:
-        colors = ["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]]
-
-        fig = go.Figure(go.Bar(
-            x=driver_df["Impact"],
-            y=driver_df["Driver"],
-            orientation="h",
-            marker_color=colors,
-            text=[f"{v:+.1f}" for v in driver_df["Impact"]],
-            textposition="auto"
-        ))
-
-        fig.update_layout(
-            height=350,
-            xaxis_title="Impact on FH Score",
-            margin=dict(l=80, r=40, t=30, b=40)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.dataframe(driver_df)
-
-    st.divider()
-
-    # -------------------------------------------------
-    # POSITIVE / NEGATIVE SUMMARY
-    # -------------------------------------------------
-    pos = driver_df[driver_df["Impact"] >= 0]
-    neg = driver_df[driver_df["Impact"] < 0]
-
-    p1, p2 = st.columns(2)
-
-    with p1:
-        st.markdown("### ✅ Positive Factors")
-        if pos.empty:
-            st.write("• None identified")
-        for _, r in pos.iterrows():
-            st.write(f"• **{r['Driver']}**")
-
-    with p2:
-        st.markdown("### ❌ Risk Concerns")
-        if neg.empty:
-            st.write("• No material concerns")
-        for _, r in neg.iterrows():
-            st.write(f"• **{r['Driver']}** ({r['Impact']:+.1f})")
-
-    st.divider()
-
-    # -------------------------------------------------
-    # EXPORT
-    # -------------------------------------------------
-    out = io.BytesIO()
-    driver_df.to_excel(out, index=False)
-
-    st.download_button(
-        "⬇ Export AI Scorecard",
-        data=out.getvalue(),
-        file_name=f"{company}_AI_Scorecard.xlsx"
+    fig.update_layout(
+        title="Key Risk Drivers (Explainable AI)",
+        height=400
     )
+
+    st.plotly_chart(fig, use_container_width=True)

@@ -253,4 +253,4 @@ def render_ai_scorecard():
     with n1: st.button("← Back to Documents")
     with n2: st.button("⬇ Export Report")
     with n3: st.button("Continue to Tools →")
-reindent this as well
+

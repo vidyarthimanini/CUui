@@ -99,3 +99,76 @@ def run_model(df: pd.DataFrame, company: str):
         "history": hist[["FY", "FH_Score"]],
         "forecast": forecast
     }
+# --------------------------------------------------
+# DATAFRAME ENGINEERING (FROM COLAB MODEL)
+# --------------------------------------------------
+def engineer_dataframe(df: pd.DataFrame):
+
+    df = df.copy()
+    df.columns = [c.strip() for c in df.columns]
+
+    # ---------------- NUMERIC CLEANING ----------------
+    def num(x):
+        try:
+            return float(str(x).replace(",", "").replace("₹", ""))
+        except:
+            return np.nan
+
+    num_cols = [
+        "Turnover (₹ Crore)", "EBITDA (₹ Crore)", "Net Profit (₹ Crore)",
+        "Net Worth (₹ Crore)", "Total Debt (₹ Crore)",
+        "DSCR", "Current Ratio", "ROCE (%)", "ROE (%)",
+        "Credit Utilization (%)", "Loan Amount",
+        "Collateral Value", "LTV Ratio", "Maximum DPD Observed"
+    ]
+
+    for c in num_cols:
+        if c in df.columns:
+            df[c] = df[c].apply(num)
+
+    # ---------------- DOCUMENT SCORE ----------------
+    doc_cols = [c for c in df.columns if c.endswith("Uploaded")]
+    df["Document_Score"] = (
+        df[doc_cols].astype(str)
+        .apply(lambda x: x.str.lower().str.contains("yes|true|uploaded"))
+        .mean(axis=1) * 100
+        if doc_cols else 50
+    )
+
+    # ---------------- LOAN TYPE EWS ----------------
+    df["Loan_Type_EWS"] = 70  # fixed placeholder (as in your backend)
+
+    # ---------------- FH SCORE ----------------
+    def compute_fh(r):
+        leverage = np.interp(
+            r["Total Debt (₹ Crore)"] / (r["Net Worth (₹ Crore)"] + 1e-6),
+            [0, 1, 3], [100, 80, 40]
+        )
+        liquidity = np.interp(r["Current Ratio"], [0.5, 1, 2], [40, 70, 100])
+        coverage = np.interp(r["DSCR"], [0.8, 1.2, 2], [40, 70, 100])
+        profitability = np.mean([
+            np.interp(r["ROCE (%)"], [5, 10, 20], [40, 70, 100]),
+            np.interp(r["ROE (%)"], [5, 10, 20], [40, 70, 100])
+        ])
+
+        fh = (
+            0.35 * leverage +
+            0.20 * liquidity +
+            0.20 * coverage +
+            0.15 * profitability +
+            0.10 * r["Loan_Type_EWS"]
+        )
+        return float(np.clip(fh, 0, 100))
+
+        df["FH_Score"] = df.apply(compute_fh, axis=1)
+    
+        # ---------------- TRENDS ----------------
+        df = df.sort_values(["Company Name", "FY"])
+        df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"] / (df["Turnover (₹ Crore)"] + 1e-6)
+        df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
+        df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
+            lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
+        )
+
+        return df
+

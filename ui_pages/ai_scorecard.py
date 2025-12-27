@@ -47,7 +47,7 @@ def render_ai_scorecard():
     # --------------------------------------------------
     # LOAD DATA + COMPANY DROPDOWN
     # --------------------------------------------------
-    df = pd.read_excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
+    df = pd.read_excel("data/2companies.xlsx")
     companies = df["Company Name"].dropna().unique()
     company = st.selectbox("Select Company", companies)
 

@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 
-# -------------------------------------------------
-# SAFE PLOTLY IMPORT (CRITICAL)
-# -------------------------------------------------
+# ---------------- SAFE PLOTLY ----------------
 try:
     import plotly.graph_objects as go
     PLOTLY_AVAILABLE = True
@@ -12,155 +13,162 @@ except ImportError:
     PLOTLY_AVAILABLE = False
 
 
-# -------------------------------------------------
-# MAIN RENDER FUNCTION
-# -------------------------------------------------
 def render_ai_scorecard():
 
-    st.markdown("## 🤖 AI Model Feedback & Scorecard")
-    st.caption("Explainable credit risk assessment using ML & business logic")
+    st.markdown("## 🤖 AI Credit Risk Scorecard")
+    st.caption("Excel-driven, explainable AI scoring")
     st.divider()
 
-    # -------------------------------------------------
-    # SAFETY CHECK — REQUIRED DATA
-    # -------------------------------------------------
-        # -------------------------------------------------
-    # SAFE DATA ACCESS (NO HARD STOP)
-    # -------------------------------------------------
-    df = st.session_state.get("ENGINEERED_DF")
-    model = st.session_state.get("MODEL")
-    FEATURES = st.session_state.get("FEATURES")
-    means = st.session_state.get("FEATURE_MEANS")
-    stds = st.session_state.get("FEATURE_STDS")
-
-   
-
-    # -------------------------------------------------
-    # COMPANY SELECTION
-    # -------------------------------------------------
-    companies = sorted(df["Company Name"].dropna().unique())
-
-    company = st.selectbox(
-        "Select Company for AI Analysis",
-        companies,
-        key="ai_company"
+    # =====================================================
+    # 1. EXCEL UPLOAD
+    # =====================================================
+    uploaded = st.file_uploader(
+        "📥 Upload Excel file (Company Financials)",
+        type=["xlsx"]
     )
+
+    if uploaded is None:
+        st.info("Upload an Excel file to begin AI scoring.")
+        return
+
+    df = pd.read_excel(uploaded)
+    df.columns = [c.strip() for c in df.columns]
+
+    # =====================================================
+    # 2. BASIC CLEANING
+    # =====================================================
+    df["FY"] = pd.to_numeric(df["FY"], errors="coerce")
+    df = df.dropna(subset=["Company Name", "FY"])
+
+    def num(x):
+        try:
+            return float(str(x).replace(",", "").replace("₹", ""))
+        except:
+            return np.nan
+
+    NUM_COLS = [
+        "Turnover (₹ Crore)", "EBITDA (₹ Crore)",
+        "Net Worth (₹ Crore)", "Total Debt (₹ Crore)",
+        "DSCR", "Current Ratio", "ROCE (%)", "ROE (%)"
+    ]
+
+    for c in NUM_COLS:
+        if c in df.columns:
+            df[c] = df[c].apply(num)
+
+    # =====================================================
+    # 3. FEATURE ENGINEERING
+    # =====================================================
+    df = df.sort_values(["Company Name", "FY"])
+
+    df["Debt_Equity"] = df["Total Debt (₹ Crore)"] / (df["Net Worth (₹ Crore)"] + 1e-6)
+    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"] / (df["Turnover (₹ Crore)"] + 1e-6)
+    df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
+
+    def scale(v, d, r):
+        if pd.isna(v): v = d[1]
+        return np.clip(np.interp(v, d, r), min(r), max(r))
+
+    def compute_fh(r):
+        return np.mean([
+            scale(r["Debt_Equity"], [0,1,3], [100,80,40]),
+            scale(r["Current Ratio"], [0.5,1,2], [40,70,100]),
+            scale(r["DSCR"], [0.8,1.2,2], [40,70,100]),
+            scale(r["ROCE (%)"], [5,10,20], [40,70,100]),
+            scale(r["ROE (%)"], [5,10,20], [40,70,100])
+        ])
+
+    df["FH_Score"] = df.apply(compute_fh, axis=1)
+
+    # =====================================================
+    # 4. TRAIN AI MODEL (AUTO)
+    # =====================================================
+    FEATURES = [
+        "FH_Score", "Debt_Equity", "EBITDA_Margin",
+        "Growth_1Y", "DSCR", "Current Ratio"
+    ]
+
+    df["FH_Next"] = df.groupby("Company Name")["FH_Score"].shift(-1)
+    train = df.dropna(subset=["FH_Next"])
+
+    if len(train) < 3:
+        st.error("Not enough data to train AI model.")
+        return
+
+    pipe = Pipeline([
+        ("imp", SimpleImputer(strategy="median")),
+        ("model", Ridge(alpha=1.2))
+    ])
+
+    pipe.fit(train[FEATURES], train["FH_Next"])
+
+    means = train[FEATURES].mean()
+    stds = train[FEATURES].std().replace(0, 1)
+
+    # =====================================================
+    # 5. COMPANY DROPDOWN
+    # =====================================================
+    companies = sorted(df["Company Name"].unique())
+    company = st.selectbox("Select Company", companies)
 
     row = df[df["Company Name"] == company].iloc[-1]
     X = row[FEATURES]
+    fh_ai = pipe.predict(pd.DataFrame([X]))[0]
 
-    # -------------------------------------------------
-    # MODEL PREDICTION
-    # -------------------------------------------------
-    fh_pred = model.predict(pd.DataFrame([X]))[0]
+    # =====================================================
+    # 6. SCORE SUMMARY
+    # =====================================================
+    c1, c2, c3 = st.columns(3)
 
-    if fh_pred >= 75:
-        risk_band = "Low"
-    elif fh_pred >= 50:
-        risk_band = "Moderate"
-    else:
-        risk_band = "High"
+    c1.metric("FH Score (Formula)", f"{row['FH_Score']:.1f}")
+    c2.metric("FH Score (AI)", f"{fh_ai:.1f}")
 
-    # -------------------------------------------------
-    # SCORECARD UI
-    # -------------------------------------------------
-    col1, col2, col3 = st.columns(3)
+    risk_band = "Low" if fh_ai >= 75 else "Moderate" if fh_ai >= 50 else "High"
+    c3.metric("Risk Band", risk_band)
 
-    col1.metric("FH Score (Formula)", f"{row['FH_Score']:.2f}")
-    col2.metric("FH Score (AI)", f"{fh_pred:.2f}")
-    col3.metric("Risk Band", risk_band)
-
-    st.divider()
-
-    # -------------------------------------------------
-    # SHAP-STYLE LINEAR IMPACT
-    # -------------------------------------------------
-    coef = model.coef_
+    # =====================================================
+    # 7. SHAP-STYLE EXPLANATION
+    # =====================================================
+    coef = pipe.named_steps["model"].coef_
     z = (X - means) / stds
     impacts = z * coef
 
-    shap_df = pd.DataFrame({
-        "Feature": FEATURES,
+    driver_df = pd.DataFrame({
+        "Driver": FEATURES,
         "Impact": impacts.values
-    })
+    }).sort_values("Impact")
 
-    # -------------------------------------------------
-    # BUSINESS DRIVER MAPPING
-    # -------------------------------------------------
-    BUSINESS_DRIVERS = {
-        "DSCR": "DSCR Ratio",
-        "Current Ratio": "Current Ratio",
-        "FH_Score": "Debt–Equity Ratio",
-        "EBITDA_Margin": "EBITDA Margin",
-        "Growth_1Y": "Revenue Growth (YoY)",
-        "Loan_Type_EWS": "Banking Conduct",
-        "Document_Score": "Industry Risk"
-    }
+    st.markdown("### 📉 Key Risk Drivers")
 
-    driver_rows = []
+    if PLOTLY_AVAILABLE:
+        fig = go.Figure()
+        fig.add_bar(
+            x=driver_df["Impact"],
+            y=driver_df["Driver"],
+            orientation="h",
+            marker_color=["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]],
+            text=driver_df["Impact"].round(2),
+            textposition="auto"
+        )
+        fig.update_layout(height=350)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.dataframe(driver_df)
 
-    for key, label in BUSINESS_DRIVERS.items():
-        match = shap_df[shap_df["Feature"].str.contains(key, case=False)]
-        impact = match["Impact"].sum() if not match.empty else 0.0
-
-        driver_rows.append({
-            "Driver": label,
-            "Impact": round(float(impact), 2)
-        })
-
-    driver_df = pd.DataFrame(driver_rows)
-
-    # -------------------------------------------------
-    # POSITIVE / NEGATIVE FACTORS
-    # -------------------------------------------------
+    # =====================================================
+    # 8. POSITIVE / NEGATIVE SUMMARY
+    # =====================================================
     pos = driver_df[driver_df["Impact"] > 0]
     neg = driver_df[driver_df["Impact"] < 0]
 
     cpos, cneg = st.columns(2)
 
     with cpos:
-        st.markdown("### ✅ Positive Factors")
-        if pos.empty:
-            st.write("• None")
+        st.markdown("#### ✅ Positive Factors")
         for _, r in pos.iterrows():
-            st.write(f"• **{r['Driver']}**  +{r['Impact']}")
+            st.write(f"• {r['Driver']} (+{r['Impact']:.2f})")
 
     with cneg:
-        st.markdown("### ❌ Risk Concerns")
-        if neg.empty:
-            st.write("• No material concerns")
+        st.markdown("#### ❌ Risk Concerns")
         for _, r in neg.iterrows():
-            st.write(f"• **{r['Driver']}**  {r['Impact']}")
-
-    st.divider()
-
-    # -------------------------------------------------
-    # SHAP BAR CHART (OPTIONAL)
-    # -------------------------------------------------
-    st.markdown("### 📉 Key Risk Drivers")
-
-    if not PLOTLY_AVAILABLE:
-        st.warning("Charts unavailable (Plotly not installed).")
-        st.dataframe(driver_df)
-        return
-
-    colors = ["#dc2626" if v < 0 else "#16a34a" for v in driver_df["Impact"]]
-
-    fig = go.Figure()
-    fig.add_bar(
-        x=driver_df["Impact"],
-        y=driver_df["Driver"],
-        orientation="h",
-        marker_color=colors,
-        text=driver_df["Impact"],
-        textposition="auto"
-    )
-
-    fig.update_layout(
-        height=350,
-        title="Explainable AI – Risk Driver Impact",
-        xaxis_title="Impact on FH Score",
-        margin=dict(l=80, r=40, t=60, b=40)
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+            st.write(f"• {r['Driver']} ({r['Impact']:.2f})")

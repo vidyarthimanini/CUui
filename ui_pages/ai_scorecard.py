@@ -147,24 +147,33 @@ def render_ai_scorecard():
     # --------------------------------------------------
     # FH SCORE + 3Y FORECAST
     # --------------------------------------------------
-    hist_fy = res["history"]["FY"].tolist()
-    hist_score = res["history"]["FH_Score"].tolist()
+     hist_fy = res["history"]["FY"].tolist()
+    hist_score = res["history"]["FH_Score"].tolist()
 
-    last_fy = hist_fy[-1]
-    last_score = hist_score[-1]
 
-    forecast_years = [last_fy + i for i in range(1, 4)]
-    forecast_scores = list(res["forecast"]) if isinstance(res["forecast"], (list, tuple)) else [res["forecast"]] * 3
 
-    _, mid, _ = st.columns([1, 3, 1])
-    with mid:
-        fig, ax = plt.subplots(figsize=(6, 2))
-        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
-        ax.plot([last_fy] + forecast_years,
-                [last_score] + forecast_scores,
-                "--s", linewidth=2, label="Forecast (3Y)")
-        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
-        st.pyplot(fig, use_container_width=True)
+    last_fy = hist_fy[-1]
+    last_score = hist_score[-1]
+
+
+
+    forecast_years = [last_fy + i for i in range(1, 4)]
+    forecast_scores = list(res["forecast"]) if isinstance(res["forecast"], (list, tuple)) else [res["forecast"]] * 3
+
+
+
+    _, mid, _ = st.columns([1, 3, 1])
+    with mid:
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
+        ax.plot(
+            [last_fy] + forecast_years,
+            [last_score] + forecast_scores,
+            "--s", linewidth=2, label="Forecast (3Y)"
+        )
+        style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
+        st.pyplot(fig, use_container_width=True)
+
 
     st.divider()
 

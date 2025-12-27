@@ -6,21 +6,23 @@ from model.ews_model import analyze_company
 
 
 # --------------------------------------------------
-# PLOT STYLING (COLAB-LIKE)
+# SMALL, CLEAN TIMESERIES STYLE (COLAB-LIKE)
 # --------------------------------------------------
 def style_timeseries(ax, title):
-    ax.set_title(title, fontsize=11)
-    ax.grid(alpha=0.4)
-    ax.legend(fontsize=9)
+    ax.set_title(title, fontsize=10)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.tick_params(axis="both", labelsize=9)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.tick_params(axis="both", labelsize=8)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    plt.tight_layout(pad=0.8)
 
 
 # --------------------------------------------------
-# IMPACT SCORING (EXPLAINABILITY)
+# IMPACT SCORING (EXPLAINABLE)
 # --------------------------------------------------
 def score_to_impact(value, good, bad, max_impact):
-    if value is None:
+    if value is None or pd.isna(value):
         return 0.0
     try:
         value = float(value)
@@ -50,8 +52,7 @@ def render_ai_scorecard():
     company = st.selectbox("Select Company", companies)
 
     if st.button("▶ Run AI Model"):
-        result = analyze_company(df, company)
-        st.session_state["model_result"] = result
+        st.session_state["model_result"] = analyze_company(df, company)
 
     if "model_result" not in st.session_state:
         st.info("Select a company and run the AI model.")
@@ -82,17 +83,12 @@ def render_ai_scorecard():
 
     with right:
         st.markdown("### Risk Band Classification")
-        bands = [
-            ("SB1", "Excellent", "90–100"),
-            ("SB2", "Very Good", "85–89"),
-            ("SB3", "Good", "80–84"),
-            ("SB4", "Good", "75–79"),
-            ("SB5", "Satisfactory", "70–74"),
-            ("SB6", "Satisfactory", "65–69"),
-            ("SB7", "Acceptable", "60–64"),
-            ("SB8", "Acceptable", "55–59"),
-        ]
-        for b, l, r in bands:
+        for b, l, r in [
+            ("SB1","Excellent","90–100"),("SB2","Very Good","85–89"),
+            ("SB3","Good","80–84"),("SB4","Good","75–79"),
+            ("SB5","Satisfactory","70–74"),("SB6","Satisfactory","65–69"),
+            ("SB7","Acceptable","60–64"),("SB8","Acceptable","55–59"),
+        ]:
             st.markdown(
                 f"**{b}** — {l} <span style='float:right;color:gray'>{r}</span>",
                 unsafe_allow_html=True
@@ -104,18 +100,14 @@ def render_ai_scorecard():
     # DECISION
     # --------------------------------------------------
     decision = "Approve" if fh_score >= 75 else "Review" if fh_score >= 60 else "Reject"
-    decision_color = (
-        "#ecfdf3" if decision == "Approve"
-        else "#fff7e6" if decision == "Review"
-        else "#fff1f0"
-    )
+    color = "#ecfdf3" if decision=="Approve" else "#fff7e6" if decision=="Review" else "#fff1f0"
 
     st.markdown(
         f"""
-        <div style="background:{decision_color};padding:20px;border-radius:12px">
+        <div style="background:{color};padding:20px;border-radius:12px">
             <h4>Decision Recommendation</h4>
             <h2>{decision}</h2>
-            <p>Based on AI risk assessment and financial health indicators.</p>
+            <p>Based on AI-driven financial health assessment.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -124,92 +116,71 @@ def render_ai_scorecard():
     st.divider()
 
     # --------------------------------------------------
-    # FH SCORE + FORECAST (COLAB STYLE)
+    # 📈 FH SCORE + 3Y FORECAST
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(6, 3))
+    hist_fy = res["history"]["FY"].tolist()
+    hist_score = res["history"]["FH_Score"].tolist()
 
+    last_fy = hist_fy[-1]
+    last_score = hist_score[-1]
+
+    forecast_years = [last_fy + i for i in range(1, 4)]
+    forecast_scores = res["forecast"]   # MUST BE LIST OF 3 VALUES
+
+    fig, ax = plt.subplots(figsize=(5, 2.4))
+
+    ax.plot(hist_fy, hist_score, marker="o", linewidth=2, label="Historical")
     ax.plot(
-        res["history"]["FY"],
-        res["history"]["FH_Score"],
-        marker="o",
-        linewidth=2,
-        label="Historical"
+        [last_fy] + forecast_years,
+        [last_score] + forecast_scores,
+        "--s", linewidth=2, label="Forecast (3Y)"
     )
 
-    ax.plot(
-        [res["history"]["FY"].iloc[-1], res["history"]["FY"].iloc[-1] + 1],
-        [res["history"]["FH_Score"].iloc[-1], res["forecast"]],
-        linestyle="--",
-        marker="s",
-        linewidth=2,
-        label="Forecast"
-    )
-
-    style_timeseries(ax, "Financial Health Score Trend")
+    style_timeseries(ax, "Financial Health Score (3-Year Forecast)")
     st.pyplot(fig)
 
     # --------------------------------------------------
-    # REVENUE GROWTH (COLAB STYLE)
+    # 📈 REVENUE & EBITDA (SIDE BY SIDE)
     # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(6, 3))
+    c1, c2 = st.columns(2)
 
-    ax.plot(
-        res["growth"]["FY"],
-        res["growth"]["Growth_1Y"] * 100,
-        marker="o",
-        linewidth=2,
-        label="Revenue Growth"
-    )
+    with c1:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(
+            res["growth"]["FY"],
+            res["growth"]["Growth_1Y"] * 100,
+            marker="o", linewidth=2
+        )
+        style_timeseries(ax, "Revenue Growth (YoY %)")
+        st.pyplot(fig)
 
-    ax.set_ylabel("%")
-    style_timeseries(ax, "Revenue Growth (YoY %)")
-    st.pyplot(fig)
-
-    # --------------------------------------------------
-    # EBITDA MARGIN (COLAB STYLE)
-    # --------------------------------------------------
-    fig, ax = plt.subplots(figsize=(6, 3))
-
-    ax.plot(
-        res["ebitda"]["FY"],
-        res["ebitda"]["EBITDA_Margin"] * 100,
-        marker="s",
-        linewidth=2,
-        label="EBITDA Margin"
-    )
-
-    ax.set_ylabel("%")
-    style_timeseries(ax, "EBITDA Margin (%)")
-    st.pyplot(fig)
+    with c2:
+        fig, ax = plt.subplots(figsize=(4.5, 2.2))
+        ax.plot(
+            res["ebitda"]["FY"],
+            res["ebitda"]["EBITDA_Margin"] * 100,
+            marker="s", linewidth=2
+        )
+        style_timeseries(ax, "EBITDA Margin (%)")
+        st.pyplot(fig)
 
     st.divider()
 
     # --------------------------------------------------
-    # KEY RISK DRIVERS (EXPLAINABLE)
+    # 🔍 KEY RISK DRIVERS
     # --------------------------------------------------
-    st.markdown("### 🔍 Key Risk Drivers (Explainable Impact)")
+    st.markdown("### 🔍 Key Risk Drivers (Explainable)")
 
     drivers = [
-        ("DSCR Ratio",
-         score_to_impact(last["DSCR"], good=1.5, bad=0.9, max_impact=8)),
-
+        ("DSCR Ratio", score_to_impact(last["DSCR"], 1.5, 0.9, 8)),
         ("Debt–Equity Ratio",
          score_to_impact(
-             last["Total Debt (₹ Crore)"] / (last["Net Worth (₹ Crore)"] + 1e-6),
-             good=0.6, bad=0.25, max_impact=6
-         )),
-
-        ("Current Ratio",
-         score_to_impact(last["Current Ratio"], good=1.5, bad=1.0, max_impact=5)),
-
-        ("EBITDA Margin",
-         score_to_impact(last["EBITDA_Margin"] * 100, good=20, bad=5, max_impact=4)),
-
+             last["Net Worth (₹ Crore)"] / (last["Total Debt (₹ Crore)"] + 1e-6),
+             0.6, 0.25, 6)),
+        ("Current Ratio", score_to_impact(last["Current Ratio"], 1.5, 1.0, 5)),
+        ("EBITDA Margin", score_to_impact(last["EBITDA_Margin"]*100, 20, 5, 4)),
         ("Revenue Growth (YoY)",
-         score_to_impact(
-             last["Growth_1Y"] * 100 if not pd.isna(last["Growth_1Y"]) else None,
-             good=10, bad=-5, max_impact=3
-         )),
+         score_to_impact(last["Growth_1Y"]*100 if not pd.isna(last["Growth_1Y"]) else None, 10, -5, 3))
     ]
 
     for name, val in drivers:
@@ -217,76 +188,15 @@ def render_ai_scorecard():
         with c1:
             st.write(name)
         with c2:
-            st.progress(min(abs(val) / 8, 1.0))
+            st.progress(min(abs(val)/8, 1.0))
             st.caption(f"{int(round(val)):+d}")
-
-    st.divider()
-
-    # --------------------------------------------------
-    # RISK SUMMARY
-    # --------------------------------------------------
-    st.markdown("### 📋 Risk Assessment Summary")
-
-    positives, concerns = [], []
-
-    for name, val in drivers:
-        if val <= -1:
-            concerns.append(f"❌ {name}: {int(round(val)):+d}")
-        elif val >= -0.3:
-            positives.append(f"✅ {name}")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown("**Positive Factors**")
-        for p in positives or ["• None identified"]:
-            st.write(p)
-
-    with c2:
-        st.markdown("**Risk Concerns**")
-        for r in concerns or ["• No material concerns"]:
-            st.write(r)
-
-    st.divider()
-
-    # --------------------------------------------------
-    # MODEL METRICS (STATIC)
-    # --------------------------------------------------
-    m1, m2, m3 = st.columns(3)
-
-    with m1:
-        st.markdown(
-            "<div style='background:#eef6ff;padding:20px;border-radius:12px;text-align:center'>"
-            "<h3>94.2%</h3><p>Model Accuracy</p></div>",
-            unsafe_allow_html=True
-        )
-
-    with m2:
-        st.markdown(
-            "<div style='background:#ecfdf3;padding:20px;border-radius:12px;text-align:center'>"
-            "<h3>0.89</h3><p>AUC Score</p></div>",
-            unsafe_allow_html=True
-        )
-
-    with m3:
-        st.markdown(
-            "<div style='background:#f7f0ff;padding:20px;border-radius:12px;text-align:center'>"
-            "<h3>87.5%</h3><p>Precision Rate</p></div>",
-            unsafe_allow_html=True
-        )
 
     st.divider()
 
     # --------------------------------------------------
     # NAVIGATION
     # --------------------------------------------------
-    nav1, nav2, nav3 = st.columns(3)
-
-    with nav1:
-        st.button("← Back to Documents")
-
-    with nav2:
-        st.button("⬇ Export Report")
-
-    with nav3:
-        st.button("Continue to Tools →")
+    n1, n2, n3 = st.columns(3)
+    with n1: st.button("← Back to Documents")
+    with n2: st.button("⬇ Export Report")
+    with n3: st.button("Continue to Tools →")

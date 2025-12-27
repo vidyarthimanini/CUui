@@ -133,7 +133,7 @@ def render_financial_data():
     fy21 = st.session_state.financials["FY 2022"].get("turnover")
     fy23 = st.session_state.financials["FY 2024"].get("turnover")
 
-    cagr = calc_cagr(fy21, fy23)
+    cagr = calc_cagr(fy22, fy24)
 
     c1, c2 = st.columns(2)
     c1.metric("Turnover CAGR (FY21–FY23)", f"{cagr:.2f}%" if cagr else "N/A")

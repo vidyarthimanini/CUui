@@ -125,7 +125,7 @@ def render_ai_scorecard():
     st.divider()
 
     # ==================================================
-    # 📈 FH SCORE + 3Y FORECAST (CORRECT & STABLE)
+    # 📈 FH SCORE + 3Y FORECAST
     # ==================================================
     hist_fy = res["history"]["FY"].tolist()
     hist_score = res["history"]["FH_Score"].tolist()
@@ -201,13 +201,22 @@ def render_ai_scorecard():
             st.write(name)
 
         with c2:
-            st.progress(min(abs(val) / 8, 1.0))
-            st.caption(f"{val:+.1f}")
+            bar_value = min(abs(val) / 8, 1.0)
 
-        if val < -1:
+            if val < 0:
+                st.progress(bar_value)
+                st.caption(f"🔴 {val:+.1f}")
+            elif val > 0:
+                st.progress(bar_value)
+                st.caption(f"🔵 +{val:.1f}")
+            else:
+                st.progress(0.05)
+                st.caption("🟢 Neutral")
+
+        if val <= -1:
             risks.append(f"❌ {name}: {val:+.1f}")
-        elif val >= 0:
-            positives.append(f"✅ {name}")
+        elif val >= 1:
+            positives.append(f"✅ {name}: +{val:.1f}")
 
     st.divider()
 
@@ -230,12 +239,9 @@ def render_ai_scorecard():
 
     # ---------------- NAVIGATION ----------------
     n1, n2, n3 = st.columns(3)
-
     with n1:
         st.button("← Back to Documents")
-
     with n2:
         st.button("⬇ Export Report")
-
     with n3:
         st.button("Continue to Tools →")

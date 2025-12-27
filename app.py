@@ -73,4 +73,3 @@ elif page == "AI Scorecard":
     render_ai_scorecard()
 elif page == "Tools":
     st.info("Tools page (to be implemented)")
-

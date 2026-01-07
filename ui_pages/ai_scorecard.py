@@ -81,15 +81,15 @@ def render_ai_scorecard():
 
     # --------------------------------------------------
 
-    df = pd.read_excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
+    df_ui = pd.read_excel("data/2companies.xlsx")
 
-    companies = df["Company Name"].dropna().unique()
+    companies = df_ui["Company Name"].dropna().unique()
 
     company = st.selectbox("Select Company", companies)
  
     if st.button("▶ Run AI Model"):
 
-        st.session_state["model_result"] = analyze_company(df, company)
+        st.session_state["model_result"] = analyze_company(company = company, df_company=company, df_company=df_ui)
  
     if "model_result" not in st.session_state:
 

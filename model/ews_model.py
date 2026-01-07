@@ -86,20 +86,20 @@ def analyze_company(company: str, df_company: pd.DataFrame):
     ]
 
     for c in num_cols:
-        if c in df_all.columns:
-            df_all[c] = df_all[c].apply(num)
+        if c in df_company.columns:
+            df_company[c] = df_company[c].apply(num)
 
     # ---------------- DOCUMENT SCORE ----------------
-    doc_cols = [c for c in df_all.columns if c.endswith("Uploaded")]
-    df_all["Document_Score"] = (
-        df_all[doc_cols].astype(str)
+    doc_cols = [c for c in df_company.columns if c.endswith("Uploaded")]
+    df_company["Document_Score"] = (
+        df_company[doc_cols].astype(str)
         .apply(lambda x: x.str.lower().str.contains("yes|true|uploaded"))
         .mean(axis=1) * 100
         if doc_cols else 50
     )
 
     # ---------------- LOAN TYPE EWS ----------------
-    df_all["Loan_Type_EWS"] = df_all.apply(loan_ews, axis=1)
+    df_company["Loan_Type_EWS"] = df_company.apply(loan_ews, axis=1)
 
     # ---------------- FINANCIAL HEALTH (EXACT COLAB) ----------------
     def scale(v, d, r):
@@ -134,13 +134,13 @@ def analyze_company(company: str, df_company: pd.DataFrame):
 
         return np.clip(fh_raw - penalty, 0, 100)
 
-    df_all["FH_Score"] = df_all.apply(compute_fh, axis=1)
+    df_company["FH_Score"] = df_company.apply(compute_fh, axis=1)
 
     # ---------------- TRENDS ----------------
-    df_all = df_all.sort_values(["Company Name", "FY"])
-    df_all["EBITDA_Margin"] = df_all["EBITDA (₹ Crore)"] / (df_all["Turnover (₹ Crore)"] + 1e-6)
-    df_all["Growth_1Y"] = df_all.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
-    df_all["Trend_Slope"] = df_all.groupby("Company Name")["FH_Score"].transform(
+    df_company = df_company.sort_values(["Company Name", "FY"])
+    df_company["EBITDA_Margin"] = df_company["EBITDA (₹ Crore)"] / (df_company["Turnover (₹ Crore)"] + 1e-6)
+    df_company["Growth_1Y"] = df_company.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
+    df_company["Trend_Slope"] = df_company.groupby("Company Name")["FH_Score"].transform(
         lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
     )
 

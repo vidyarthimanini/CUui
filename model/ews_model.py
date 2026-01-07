@@ -71,11 +71,11 @@ def loan_ews(row):
 # --------------------------------------------------
 def analyze_company(df: pd.DataFrame, company: str):
 
-    df = df.copy()
-    df.columns = [c.strip() for c in df.columns]
+    df_all = df.copy()
+    df_all.columns = [c.strip() for c in df_all.columns]
 
-    df["FY"] = pd.to_numeric(df["FY"], errors="coerce")
-    df = df.dropna(subset=["Company Name", "FY"])
+    df_all["FY"] = pd.to_numeric(df_all["FY"], errors="coerce")
+    df_all = df_all.dropna(subset=["Company Name", "FY"])
 
     num_cols = [
         "Turnover (₹ Crore)", "EBITDA (₹ Crore)", "Net Profit (₹ Crore)",
@@ -85,20 +85,20 @@ def analyze_company(df: pd.DataFrame, company: str):
     ]
 
     for c in num_cols:
-        if c in df.columns:
-            df[c] = df[c].apply(num)
+        if c in df_all.columns:
+            df_all[c] = df_all[c].apply(num)
 
     # ---------------- DOCUMENT SCORE ----------------
-    doc_cols = [c for c in df.columns if c.endswith("Uploaded")]
-    df["Document_Score"] = (
-        df[doc_cols].astype(str)
+    doc_cols = [c for c in df_all.columns if c.endswith("Uploaded")]
+    df_all["Document_Score"] = (
+        df_all[doc_cols].astype(str)
         .apply(lambda x: x.str.lower().str.contains("yes|true|uploaded"))
         .mean(axis=1) * 100
         if doc_cols else 50
     )
 
     # ---------------- LOAN TYPE EWS ----------------
-    df["Loan_Type_EWS"] = df.apply(loan_ews, axis=1)
+    df_all["Loan_Type_EWS"] = df_all.apply(loan_ews, axis=1)
 
     # ---------------- FINANCIAL HEALTH (EXACT COLAB) ----------------
     def scale(v, d, r):
@@ -133,19 +133,19 @@ def analyze_company(df: pd.DataFrame, company: str):
 
         return np.clip(fh_raw - penalty, 0, 100)
 
-    df["FH_Score"] = df.apply(compute_fh, axis=1)
+    df_all["FH_Score"] = df_all.apply(compute_fh, axis=1)
 
     # ---------------- TRENDS ----------------
-    df = df.sort_values(["Company Name", "FY"])
-    df["EBITDA_Margin"] = df["EBITDA (₹ Crore)"] / (df["Turnover (₹ Crore)"] + 1e-6)
-    df["Growth_1Y"] = df.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
-    df["Trend_Slope"] = df.groupby("Company Name")["FH_Score"].transform(
+    df_all = df_all.sort_values(["Company Name", "FY"])
+    df_all["EBITDA_Margin"] = df_all["EBITDA (₹ Crore)"] / (df_all["Turnover (₹ Crore)"] + 1e-6)
+    df_all["Growth_1Y"] = df_all.groupby("Company Name")["Turnover (₹ Crore)"].pct_change()
+    df_all["Trend_Slope"] = df_all.groupby("Company Name")["FH_Score"].transform(
         lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) > 1 else 0
     )
 
     # ---------------- ML FORECAST ----------------
-    df["FH_Next"] = df.groupby("Company Name")["FH_Score"].shift(-1)
-    train = df.dropna(subset=["FH_Next"])
+    df_all["FH_Next"] = df_all.groupby("Company Name")["FH_Score"].shift(-1)
+    train = df_all.dropna(subset=["FH_Next"])
 
     FEATURES = [
         "FH_Score", "Trend_Slope", "Growth_1Y",
@@ -160,15 +160,15 @@ def analyze_company(df: pd.DataFrame, company: str):
 
     pipe.fit(train[FEATURES], train["FH_Next"])
 
-    h = df[df["Company Name"].str.lower() == company.lower()]
-    last = h.iloc[-1]
+    df_company = df_all[df_all["Company Name"].str.lower() == company.lower()]
+    last = df_company.iloc[-1]
     forecast = pipe.predict(pd.DataFrame([last[FEATURES]]))[0]
 
     return {
         "fh_score": round(last["FH_Score"], 2),
-        "history": h[["FY", "FH_Score"]],
+        "history": df_company[["FY", "FH_Score"]],
         "forecast": round(float(forecast), 2),
-        "ebitda": h[["FY", "EBITDA_Margin"]],
-        "growth": h[["FY", "Growth_1Y"]],
+        "ebitda": df_company[["FY", "EBITDA_Margin"]],
+        "growth": df_company[["FY", "Growth_1Y"]],
         "latest": last
     }

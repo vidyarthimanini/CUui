@@ -69,7 +69,9 @@ def loan_ews(row):
 # --------------------------------------------------
 # MAIN ANALYSIS FUNCTION (USED BY UI)
 # --------------------------------------------------
-def analyze_company(df: pd.DataFrame, company: str):
+#READ EXCEL FOR MODEL
+df_all=pd.excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
+def analyze_company(company: str, df_company: pd.DataFrame):
 
     df_all = df.copy()
     df_all.columns = [c.strip() for c in df_all.columns]
@@ -159,8 +161,9 @@ def analyze_company(df: pd.DataFrame, company: str):
     ])
 
     pipe.fit(train[FEATURES], train["FH_Next"])
-
-    df_company = df_all[df_all["Company Name"].str.lower() == company.lower()]
+    df_company = df_company.copy()
+    df_company.columns = [c.strip() for c in df_company.columns]
+    df_company = df_company.sort_values("FY")
     last = df_company.iloc[-1]
     forecast = pipe.predict(pd.DataFrame([last[FEATURES]]))[0]
 

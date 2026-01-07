@@ -89,7 +89,7 @@ def render_ai_scorecard():
  
     if st.button("▶ Run AI Model"):
 
-        st.session_state["model_result"] = analyze_company(company = company, df_company=company, df_company=df_ui)
+        st.session_state["model_result"] = analyze_company(company = company, df_company=df_ui)
  
     if "model_result" not in st.session_state:
 

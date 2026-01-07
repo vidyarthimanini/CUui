@@ -70,12 +70,11 @@ def loan_ews(row):
 # MAIN ANALYSIS FUNCTION (USED BY UI)
 # --------------------------------------------------
 #READ EXCEL FOR MODEL
-df_all=pd.excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
+
 def analyze_company(company: str, df_company: pd.DataFrame):
-
-    df_all = df.copy()
+    df_all=pd.read_excel("data/Indian_Companies_EWS_READY_WITH_FY2025.xlsx")
+  
     df_all.columns = [c.strip() for c in df_all.columns]
-
     df_all["FY"] = pd.to_numeric(df_all["FY"], errors="coerce")
     df_all = df_all.dropna(subset=["Company Name", "FY"])
 
